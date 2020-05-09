@@ -2,17 +2,17 @@
 // Created by grigoriy on 23.02.20.
 //
 
-#include "DBServer.h"
+#include "MySqlClient.h"
 #include <utility>
 #include <cstring>
 
-DBServer::DBServer(cstring database):
+MySqlClient::MySqlClient(cstring database):
     db_name(std::move(database)), 
     conn(false){
 
     };
 
-bool DBServer::connect(cstring user, cstring passw) {
+bool MySqlClient::connect(cstring user, cstring passw) {
     conn.connect(db_name.c_str(), "localhost", user.c_str(), passw.c_str());
     if (not conn.connected())
     {
@@ -23,7 +23,7 @@ bool DBServer::connect(cstring user, cstring passw) {
 }
 
 
-int DBServer::auth(cstring uname, cstring pass) {
+int MySqlClient::auth(cstring uname, cstring pass) {
     if (uname == "anonymous")
         return 0;
     std::string stringQuery = std::string("SELECT id from users WHERE username"
@@ -38,11 +38,11 @@ int DBServer::auth(cstring uname, cstring pass) {
     return std::stoi(reply[0][0].c_str());
 }
 
-std::string DBServer::last_error() const {
+std::string MySqlClient::last_error() const {
     return error;
 }
 
-DBServer::DBUser DBServer::getUserInfo(uint32_t id) {
+MySqlClient::DBUser MySqlClient::getUserInfo(uint32_t id) {
     DBUser userInfo;
 
     std::string stringQuery =
@@ -59,7 +59,7 @@ DBServer::DBUser DBServer::getUserInfo(uint32_t id) {
     return userInfo;
 }
 
-void DBServer::disconnect()
+void MySqlClient::disconnect()
 {
     conn.disconnect();
 }

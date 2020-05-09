@@ -2,15 +2,15 @@
 // Created by grigoriy on 23.02.20.
 //
 
-#ifndef DBSERVER_H
-#define DBSERVER_H
+#ifndef MY_SQL_CLIENT_H
+#define MY_SQL_CLIENT_H
 #include <string>
 #include <mysql++.h>
 
 #include "defines.h"
-class DBServer {
+class MySqlClient {
 public:
-    explicit DBServer(cstring database);
+    explicit MySqlClient(cstring database);
 
     bool connect(cstring user, cstring passw);
 
@@ -38,4 +38,4 @@ private:
 };
 
 
-#endif //DBSERVER_H
+#endif //MY_SQL_CLIENT_H
