@@ -1,7 +1,9 @@
 #include<string>
 #include"defines.h"
-#include"str_switch.h"
 
+
+#ifndef REQUEST_H
+#define REQUEST_H
 
 class request {
 private:
@@ -32,6 +34,7 @@ public:
         index = str.find(" \t");
         setCommand(str);
         setArg(str);
+        return *this;
     }
 
     std::string command()const {
@@ -42,3 +45,5 @@ public:
         return _arg;
     }
 };
+
+#endif // REQUEST_H

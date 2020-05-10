@@ -1,24 +1,28 @@
 #include "request.h"
 #include "tcpsocket.h"
 #include "MySqlClient.h"
-#include "functions.h"
-#define bufSize 256
 
 
 enum transfer_t{ ASCII, BIN };
 
 int connections = 0;
 
+// blocking read            from file      to buffer1
+// non-blocking(aio) write  from buffer1   to socket
+// checking signals(?????) and readed != 0
+// blocking read            from file      to buffer2
+// waiting aio write
+// non-blocking(aio) write  from buffer2   to socket
 
-void session(TcpSocket client){
+void cmdThread(TcpSocket client){
     client.send("200 Hello World!\t\n");
     request buffer;
     
     printf("%s %s\n", buffer.command().c_str(), buffer.arg().c_str());
-    buffer = client.recv(bufSize);    
+    buffer = client.recv(BUF_SIZE);    
     while(buffer.command() != "USER"){
         client.send("510 Sign in first\t\n");
-        buffer = client.recv(bufSize);
+        buffer = client.recv(BUF_SIZE);
     }
     client.send("230 OK\t\n");
     printf("%s %s\n", buffer.command().c_str(), buffer.arg().c_str());
@@ -36,7 +40,7 @@ void session(TcpSocket client){
     printf("Mysql connected\n");
     
     if (user.uname != "anonymous"){
-        buffer = client.recv(bufSize);
+        buffer = client.recv(BUF_SIZE);
         printf("Get user %s\n", buffer.arg().c_str()); 
         user.perm.id = mysql.auth(user.uname, buffer.arg());
         if (user.perm.id > 0){
@@ -66,7 +70,7 @@ void session(TcpSocket client){
     do{
         
         printf("%s %s\n", buffer.command().c_str(), buffer.arg().c_str());
-        buffer = client.recv(bufSize);
+        buffer = client.recv(BUF_SIZE);
         SWITCH(buffer.command().c_str()){
             CASE("NOOP"):
                 client.send("200 OK\t\n");
@@ -104,35 +108,15 @@ void session(TcpSocket client){
     client.close();
     exit(0);
 }
+void cmd(TcpSocket*){}
 
-
-
-int createNewSession(TcpSocket client){
-    int pid = fork();
-    if (pid == -1)return -1;
-    if (pid != 0)return pid;
-    session(client); 
-    
-    return 0;
+#include"datathread.h"
+void createNewSession(TcpSocket* cmdClient){
+    Thread<void, TcpSocket*> cmdThread{cmd, cmdClient};
 }
-
-
-
 
 int main(int argc, char *argv[])
 {
-    sigset_t set;
-    sigemptyset(&set);
-    sigaddset(&set, SIGCHLD);
-    
-    sigprocmask(SIG_UNBLOCK, &set, NULL);
-
-    struct sigaction child_act;
-    child_act.sa_mask = set;
-    child_act.sa_sigaction = childExitedHandler;
-    child_act.sa_flags = SA_SIGINFO;
-    sigaction(SIGCHLD, &child_act, NULL);
-
     TcpSocket serverSocket = TcpSocket();
     
     unsigned short port = 2000;
@@ -149,7 +133,7 @@ int main(int argc, char *argv[])
         newClient = serverSocket.accept();
         printf("Connection accepted\n");
         connections++;
-        createNewSession(newClient);
+        createNewSession(&newClient);
     }while(true);
     serverSocket.close();
 

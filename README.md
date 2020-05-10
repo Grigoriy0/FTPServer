@@ -6,11 +6,11 @@ Here are my pieces of code
 3. tcpsocket class
 4. DBServer class (works with mysql daemon)
 5. FileCommander class (works with file system)
-## Compilation
+## Compile
 ```
 make all
 ```
-## Running
+## Run
 ```
 ./Server
 ```

@@ -7,7 +7,10 @@
 #ifndef AIO_TASK_H
 #define AIO_TASK_H
 
+#define IO_SIGNAL SIGUSR1
+
 class AioTask{
+public:
     static bool init_handlers();
 
     AioTask(int fd, bool read, char *buffer, int offset);

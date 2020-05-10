@@ -4,8 +4,6 @@
 #include <string.h>
 #include <fcntl.h>
 
-#define bufSize 256
-#define IO_SIGNAL SIGUSR1
 
 bool AioTask::init_handlers(){
     struct sigaction sa{};
@@ -34,7 +32,7 @@ AioTask::AioTask(int fd, bool read, char *buffer, int offset){
     _cb->aio_buf = _buffer;
     _cb->aio_reqprio = 0;
     _cb->aio_offset = offset;
-    _cb->aio_nbytes = bufSize;
+    _cb->aio_nbytes = BUF_SIZE;
     _cb->aio_sigevent.sigev_notify = SIGEV_SIGNAL;
     _cb->aio_sigevent.sigev_signo = IO_SIGNAL;
     _cb->aio_sigevent.sigev_value.sival_ptr = this;
@@ -78,10 +76,11 @@ int AioTask::wait(int milliseconds){
 void AioTask::_aio_done_h(int sig, siginfo_t *si, void *ucontext){
     AioTask* task = (AioTask*)si->si_value.sival_ptr;
     task->_bytes = aio_return(task->_cb);
-    printf("I/O completion signal received butes %d\n", _bytes);
+    printf("I/O completion signal received butes %d\n", task->_bytes);
 }
 
 void AioTask::_quit_h(int sig){
     gotSIGQUIT = 1;
 }
 
+volatile sig_atomic_t AioTask::gotSIGQUIT = 0;

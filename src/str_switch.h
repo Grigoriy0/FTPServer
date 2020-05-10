@@ -1,3 +1,5 @@
+
+#ifndef CASE 
 typedef unsigned char uchar;
 typedef unsigned long long ullong;
 
@@ -37,3 +39,5 @@ inline ullong str_hash_for_switch(const char*const str)
     return (str_is_correct(str) && (str_len(str) <= MAX_LEN)) ?
         str_hash(str, str_len(str)) : N_HASH;
 }
+
+#endif // CASE

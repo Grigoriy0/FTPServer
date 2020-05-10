@@ -11,6 +11,8 @@
 
 #endif
 
+#define BUF_SIZE 256
+#include "str_switch.h"
 
 #include<stdio.h>
 #include<string>
@@ -26,7 +28,6 @@
 
 #define print_error(msg) perror((msg+' '+std::to_string(error_number)).c_str())
 
-#undef error_number
 #endif // PRINT_ERROR
 
 

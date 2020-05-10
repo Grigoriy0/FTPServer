@@ -1,6 +1,3 @@
-//
-// Created by grigoriy on 19.2.20.
-//
 #include "tcpsocket.h"
 #include <stdio.h>
 #include <sys/socket.h>
@@ -95,10 +92,10 @@ ssize_t TcpSocket::send(const std::string& message)
     return tr;
 }
 
-std::string TcpSocket::recv(int bufSize)
+std::string TcpSocket::recv(int BUF_SIZE)
 {
-    char* buffer = new char[bufSize];
-    if (::recv(socket_desc, buffer, bufSize, 0) == -1)
+    char* buffer = new char[BUF_SIZE];
+    if (::recv(socket_desc, buffer, BUF_SIZE, 0) == -1)
     {
         perror("read failed");
         return "";
