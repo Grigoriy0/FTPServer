@@ -25,6 +25,8 @@ public:
 
     void run();
 
+    int status();
+
     void set_buffer(char* buffer);
 
     void set_offset(int offset);
@@ -38,6 +40,7 @@ private:
     bool _done;
     aiocb *_cb;
     int _bytes;
+    int _offset;
     static void _aio_done_h(int sig, siginfo_t *si, void *ucontext);
     static void _quit_h(int sig);
     static volatile sig_atomic_t gotSIGQUIT;

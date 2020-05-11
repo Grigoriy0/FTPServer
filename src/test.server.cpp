@@ -2,17 +2,8 @@
 #include "tcpsocket.h"
 #include "MySqlClient.h"
 
-
-enum transfer_t{ ASCII, BIN };
-
+enum transfer_t{ASCII, BIN};
 int connections = 0;
-
-// blocking read            from file      to buffer1
-// non-blocking(aio) write  from buffer1   to socket
-// checking signals(?????) and readed != 0
-// blocking read            from file      to buffer2
-// waiting aio write
-// non-blocking(aio) write  from buffer2   to socket
 
 void cmdThread(TcpSocket client){
     client.send("200 Hello World!\t\n");
@@ -115,7 +106,7 @@ void createNewSession(TcpSocket* cmdClient){
     Thread<void, TcpSocket*> cmdThread{cmd, cmdClient};
 }
 
-int main(int argc, char *argv[])
+/*int main(int argc, char *argv[])
 {
     TcpSocket serverSocket = TcpSocket();
     
@@ -138,4 +129,25 @@ int main(int argc, char *argv[])
     serverSocket.close();
 
 	return 0;
+}*/
+
+
+int main(int argc, char*argv[]){
+    printf("start\n");
+    int fd[2];
+    if (pipe(fd) == -1){
+        print_error("pipe failed");
+        return -1;
+    }
+    Thread<void, TcpSocket*,pthread_t, int*> th(data_thread, nullptr, pthread_self(), fd);
+    //close(fd[0]);
+    printf("write to pipe\n");
+    std::string buf = "in.txt out.txt";
+    if (write(fd[1], buf.c_str(), buf.size()) == -1){
+        print_error("write(pipe) failed");
+        return 2;
+    }
+    th.join();
+    close(fd[1]);
+    return 0;
 }

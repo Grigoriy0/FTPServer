@@ -11,13 +11,13 @@ bool AioTask::init_handlers(){
     sigemptyset(&sa.sa_mask);
     sa.sa_handler = _quit_h;
     if (sigaction(SIGQUIT, &sa, nullptr) == -1){
-        perror("sigaction _quit_h\n");
+        print_error("sigaction(SIGQUIT) failed");
         return false;
     }
     sa.sa_flags = SA_RESTART | SA_SIGINFO;
     sa.sa_sigaction = _aio_done_h;
     if (sigaction(IO_SIGNAL, &sa, nullptr) == -1){
-        perror("sigaction _aio_done_h\n");
+        print_error("sigaction(IO_SIGNAL) failed");
         return false;
     }
     return true;
@@ -26,6 +26,7 @@ bool AioTask::init_handlers(){
 AioTask::AioTask(int fd, bool read, char *buffer, int offset){
     _fd = fd;
     _buffer = buffer;
+    _offset = offset;
     _type = read ? SEND : RECV;
     _cb = (aiocb*)calloc(1, sizeof(aiocb));
     _cb->aio_fildes = _fd;
@@ -43,18 +44,28 @@ void AioTask::set_buffer(char *buffer){
 }
 
 void AioTask::run(){
-    if (_type == SEND)
-        aio_read(_cb);
+    _cb->aio_offset = _offset;
+    _cb->aio_buf = _buffer;
+    if (_type == SEND){
+        if (aio_read(_cb) == -1)
+            print_error("aio_read failed");
+    }
     else
-        aio_write(_cb);
+        if (aio_write(_cb) == -1)
+            print_error("aio_write failed");
 }
+
+int AioTask::status(){
+    return aio_error(_cb);
+}
+
 
 int AioTask::bytes(){
     return _bytes;
 }
 
 void AioTask::set_offset(int offset){
-    _cb->aio_offset = offset;
+    _offset = offset;
 }
 
 int AioTask::get_offset(){
@@ -62,7 +73,8 @@ int AioTask::get_offset(){
 }
 
 void AioTask::cancel(){
-    aio_cancel(_fd, _cb);
+    if(aio_cancel(_fd, _cb) == -1)
+        print_error("aio_cancel failed");
 }
 
 int AioTask::wait(int milliseconds){
@@ -76,7 +88,7 @@ int AioTask::wait(int milliseconds){
 void AioTask::_aio_done_h(int sig, siginfo_t *si, void *ucontext){
     AioTask* task = (AioTask*)si->si_value.sival_ptr;
     task->_bytes = aio_return(task->_cb);
-    printf("I/O completion signal received butes %d\n", task->_bytes);
+    printf("I/O completion signal received bytes %d\n", task->_bytes);
 }
 
 void AioTask::_quit_h(int sig){
