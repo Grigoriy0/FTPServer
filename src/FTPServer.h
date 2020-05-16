@@ -16,7 +16,7 @@ public:
     struct Client {
         DataThread *dt_info;
         Thread<void, DataThread*, std::string> *dt;
-        Thread<void, TcpSocket*> *cmd;
+        Thread<void, TcpSocket*, std::string> *cmd;
         TcpSocket *cmdSocket;
         int pipe[2];
 

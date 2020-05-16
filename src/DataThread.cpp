@@ -7,6 +7,7 @@
 #include "Request.h"
 #include <unistd.h>
 #include <fcntl.h>
+#include <algorithm>
 
 static sig_atomic_t aio_abort = 0;
 
@@ -28,7 +29,9 @@ inline uint16_t get_free_port(TcpSocket *sk) {
 }
 
 void DataThread::run(DataThread *datathread, std::string ip) { // it's will executed in new thread
+    printf("DataThread running\n");
     datathread->start(ip);
+    printf("Wait for commands...\n");
     datathread->wait_commands();
 }
 
@@ -38,7 +41,8 @@ DataThread::DataThread(TcpSocket *cmdSocket, cstring root_dir, int *pipe) {
     this->fe = new FileExplorer(root_dir);
 }
 
-void DataThread::start(const std::string &ip) {
+void DataThread::start(std::string ip) {
+    std::replace(ip.begin(), ip.end(), '.', ',');
     // init passive connection
     TcpSocket *listening = new TcpSocket();
     port = get_free_port(listening);

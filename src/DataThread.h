@@ -14,7 +14,7 @@ public:
     static void run(DataThread *datathread, std::string ip);
 
 private:
-    void start(const std::string &ip);
+    void start(std::string ip);
 
     void wait_commands();
 
