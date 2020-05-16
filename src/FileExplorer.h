@@ -14,13 +14,13 @@
 class FileExplorer {
 public:
 
-    explicit FileExplorer(std::string root_dir): root(std::move(root_dir)){}
+    explicit FileExplorer(std::string root_dir): dir("/"), root(std::move(root_dir)){}
 
     std::vector<std::string> ls(const std::string &dir) ;
     /*LIST
     * */
 
-    void rm(const std::string &filename);
+    bool rm(const std::string &filename);
     /* DELE
         * */
 
@@ -28,17 +28,19 @@ public:
     /* SIZE
     * */
 
-    void mkdir(const std::string &path_namedir);
+    bool mkdir(const std::string &path_namedir);
     /* MKD
     * */
 
-    void rmdir(const std::string &path_namedir);
+    bool rmdir(const std::string &path_namedir);
     /* RMD
     * */
 
-    void move(const std::string &what_path, std::string &path_to);
+    bool move(const std::string &what_path, std::string &path_to);
     /* RNFR RNTO
     * */
+
+    std::string pwd();
 
 download_n_upload_files:
 
@@ -48,8 +50,7 @@ download_n_upload_files:
 
 private:
     std::string root;
-
-
+    std::string dir;
 };
 
 

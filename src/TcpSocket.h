@@ -21,9 +21,9 @@ public:
 
     int accept();
 
-    ssize_t send(const std::string& message);
+    ssize_t send(const std::string message);
 
-    std::string recv(int size = BUF_SIZE);
+    std::string recv();
 
     int recv_to_buffer(char* buffer, int size = BUF_SIZE);
 

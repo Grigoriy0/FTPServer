@@ -21,15 +21,17 @@ std::vector<std::string> FileExplorer::ls(const std::string &dir) {
     return result;
 }
 
-void FileExplorer::rm(const std::string &filename) {
+bool FileExplorer::rm(const std::string &filename) {
     if (::remove((root + filename).c_str()) == -1)
     {
         printf("Error removing file %s\n", filename.c_str());
+        return false;
     }
+    return true;
 }
 
 
-void FileExplorer::rmdir(const std::string &path_namedir) { // with all nested files
+bool FileExplorer::rmdir(const std::string &path_namedir) { // with all nested files
     auto nested_files = ls(path_namedir);
     if (nested_files.size() != 2) // "." and ".."
     {
@@ -50,14 +52,17 @@ void FileExplorer::rmdir(const std::string &path_namedir) { // with all nested f
                 if (path_namedir[path_namedir.size() - 1] != '/')
                     filepath += '/';
                 if (::remove((root + filepath + nested_file).c_str())) {
-                    printf("Error removing filepath %s\n", (filepath + nested_file).c_str());
+                    printf("E: removing filepath %s\n", (filepath + nested_file).c_str());
+                    return false;
                 }
             }
         }
     }
     if (::remove((root + path_namedir).c_str())) { // empty directory
-        printf("Error removing directory %s\n", path_namedir.c_str());
+        printf("E: removing directory %s\n", path_namedir.c_str());
+        return false;
     }
+    return true;
 }
 
 
@@ -67,19 +72,23 @@ uint64_t FileExplorer::size(const std::string &filename) {
     return file_stat.st_size;
 }
 
-void FileExplorer::mkdir(const std::string &path_namedir)
+bool FileExplorer::mkdir(const std::string &path_namedir)
 {
     if (::mkdir((root + path_namedir).c_str(), S_IRWXU | S_IRWXG | S_IRGRP))
     {
         printf("Error mkdir %s\n", path_namedir.c_str());
+        return false;
     }
+    return true;
 }
 
-void FileExplorer::move(const std::string &what_path, std::string &path_to) {
+bool FileExplorer::move(const std::string &what_path, std::string &path_to) {
     if(::rename((root + what_path).c_str(), (root + path_to).c_str()))
     {
         printf("Error renaming file %s to %s\n", what_path.c_str(), path_to.c_str());
+        return false;
     }
+    return true;
 }
 
 void FileExplorer::write(const std::string &file, char *data, size_t size) {
@@ -107,4 +116,9 @@ char *FileExplorer::read(const std::string &file, size_t size, int offset) {
     in.read(result, size);
     in.close();
     return result;
+}
+
+
+std::string FileExplorer::pwd(){
+    return dir;
 }

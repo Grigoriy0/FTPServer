@@ -1,4 +1,5 @@
 #include<string>
+#include <cstring>
 #include"defines.h"
 
 
@@ -17,21 +18,22 @@ private:
 
     void setArg(cstring str) {
         if (str.c_str()[index] != ' ')
-            _command = "";
+            _arg = "";
         else
-            _command = str.substr(index + 1, str.find(0x0D) - index - 1);
+            _arg = str.substr(index + 1, str.find_last_of(0x0D) - index - 1);
     }
 public:
     request(): index(0){}
 
     request(cstring str) {
-        index = str.find(" \t");
+        index = str.find_first_of(" \t");
         setCommand(str);
         setArg(str);
     }
 
-    request operator=(cstring str) {
-        index = str.find(" \t");
+    request &operator=(cstring str) {
+        index = str.find_first_of(" \t");
+        printf("index = %d\n", (int)index);
         setCommand(str);
         setArg(str);
         return *this;
