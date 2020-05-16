@@ -74,6 +74,8 @@ uint64_t FileExplorer::size(const std::string &filename) {
 
 bool FileExplorer::mkdir(const std::string &path_namedir)
 {
+    printf("%s\n", (root + path_namedir).c_str());
+    ::mkdir((root).c_str(),  S_IRWXU | S_IRWXG | S_IRGRP);
     if (::mkdir((root + path_namedir).c_str(), S_IRWXU | S_IRWXG | S_IRGRP))
     {
         printf("Error mkdir %s\n", path_namedir.c_str());

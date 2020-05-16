@@ -98,7 +98,7 @@ void cmdThread(TcpSocket *client) {
     sigprocmask(SIG_BLOCK, &act.sa_mask, nullptr);
 
     std::string reply;
-    reply = "200 Hello World!\t\n";
+    reply = "200 Welcome to FTP server by Grigoriy!\t\n";
     printf("< %s", reply.c_str());
     client->send(reply);
     int dt_thread_index;
@@ -160,13 +160,13 @@ void cmdThread(TcpSocket *client) {
                 if (fe.mkdir(buffer.arg()))
                     reply = "230 Created dir " + buffer.arg() + "\t\n";
                 else
-                    reply = "500 Error creating dir\t\n";
+                    reply = "530 Error creating dir\t\n";
             break;
             CASE("RMD"):
                 if (fe.rmdir(buffer.arg()))
-                    reply = "230 Folder was removeed\t\n";
+                    reply = "230 Folder was removed\t\n";
                 else
-                    reply = "500 Error creating folder\t\n";
+                    reply = "530 Error creating folder\t\n";
             break;
             CASE("SIZE"):
             {
@@ -174,7 +174,7 @@ void cmdThread(TcpSocket *client) {
                 if (size != -1)
                     reply = "230 Size = " + std::to_string(size) + "\t\n";
                 else
-                    reply = "500 Error getting size of file " + buffer.arg() + "\t\n";
+                    reply = "530 Error getting size of file " + buffer.arg() + "\t\n";
             }
             break;
             CASE("DELE"):
@@ -184,7 +184,7 @@ void cmdThread(TcpSocket *client) {
                     reply = "530 Error deleting file\t\n";
             break;
             default:
-                quit = true;
+//                quit = true;
                 reply = "500 Unknown command\t\n";
                 break;
         }
