@@ -2,22 +2,36 @@
 #include <stdio.h>
 #include <sys/socket.h>
 #include <arpa/inet.h>
+#include <netinet/tcp.h>
 
 
 TcpSocket::TcpSocket() {
-    socket_desc = socket(AF_INET, SOCK_STREAM, 0);
+    socket_desc = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
     if (socket_desc == -1) {
         perror("socket failed ");
         return;
     }
     int num = 1;
+    int keepidle = 3;
     if (setsockopt(socket_desc, SOL_SOCKET, SO_REUSEADDR, &num, sizeof(int)) == -1)
         print_error("setsockopt(SO_REUSEADDR) failed ");
+
+    if (setsockopt(socket_desc, SOL_SOCKET, SO_KEEPALIVE, &num, sizeof(int)) == -1)
+        print_error("setsockopt(SO_KEEPALIVE) failed ");
+    if (setsockopt(socket_desc, SOL_TCP, TCP_KEEPINTVL, &keepidle, sizeof(int)) == -1)
+        print_error("setsockopt(TCP_KEEPINTVL) failed ");
+
 }
 
 
 TcpSocket::TcpSocket(int descriptor) {
     socket_desc = descriptor;
+    int num = 1;
+    int keepidle = 3;
+    if (setsockopt(socket_desc, SOL_SOCKET, SO_KEEPALIVE, &num, sizeof(int)) == -1)
+        print_error("setsockopt(SO_KEEPALIVE) failed ");
+    if (setsockopt(socket_desc, SOL_TCP, TCP_KEEPINTVL, &keepidle, sizeof(int)) == -1)
+        print_error("setsockopt(TCP_KEEPINTVL) failed ");
 }
 
 
@@ -41,7 +55,7 @@ bool TcpSocket::connect(const std::string& ip_address, uint16_t port)
 bool TcpSocket::bind(uint16_t port)
 {
     sockaddr_in server;
-    server.sin_addr.s_addr = INADDR_ANY;
+    server.sin_addr.s_addr = htonl(INADDR_ANY);
     server.sin_port = htons(port);
     server.sin_family = AF_INET;
 
@@ -81,10 +95,10 @@ int TcpSocket::accept()
 }
 
 
-ssize_t TcpSocket::send(cstring message)
+ssize_t TcpSocket::send(cstring message, int flags)
 {
     ssize_t tr;
-    if((tr = ::send(socket_desc, message.c_str(), message.size(), MSG_NOSIGNAL)) == -1)
+    if((tr = ::send(socket_desc, message.c_str(), message.size(), 0)) == -1)
     {
         perror("send failed ");
         return 0;
@@ -94,18 +108,26 @@ ssize_t TcpSocket::send(cstring message)
 
 std::string TcpSocket::recv()
 {
-    char buffer[BUF_SIZE];// = new char[size];
-    if (::recv(socket_desc, buffer, BUF_SIZE, 0) == -1)
+    char buffer[BUF_SIZE + 1];
+    int res;
+    if ((res = ::recv(socket_desc, buffer, BUF_SIZE, 0)) == -1)
     {
         perror("recv failed ");
         return "";
     }
+    if (res == 0)
+        return "";
+    buffer[res] = 0;
     return buffer;
 }
 
 
-void TcpSocket::close(){
-    shutdown(socket_desc, SHUT_RDWR);
+void TcpSocket::close() {
+    ::close(socket_desc);
+}
+
+void TcpSocket::shutdown() {
+    ::shutdown(socket_desc, SHUT_RDWR);
 }
 
 int TcpSocket::recv_to_buffer(char *buffer, int size) {

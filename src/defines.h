@@ -1,8 +1,4 @@
-#ifdef _WIN32
-#define WIN_OS
-#include<windows.h>
-
-#elif defined(__linux__) || defined(__unix__)
+#if defined(__linux__) || defined(__unix__)
 #define LIN_OS
 #include<unistd.h>
 #include<sys/types.h>
@@ -20,13 +16,9 @@
 #ifndef PRINT_ERROR
 #define PRINT_ERROR
 
-#ifdef WIN_OS
-    #define eror_number GetLastError()
-#elif defined LIN_OS
-    #define error_number errno
-#endif
 
-#define print_error(msg) perror((msg+' '+std::to_string(error_number)).c_str())
+
+#define print_error(msg) perror((std::string(msg)).c_str())
 
 #endif // PRINT_ERROR
 

@@ -61,6 +61,7 @@ int main(int argc, char *argv[]) {
 //    TcpSocket newClient(serverSocket.accept());
 //    printf("Connection accepted\n");
 //    createNewSession(&newClient);
+//    serverSocket.shutdown();
 //    serverSocket.close();
 //
 //    global::cmd_threads[0]->join();

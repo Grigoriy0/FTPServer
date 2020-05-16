@@ -19,7 +19,7 @@ public:
 
     int accept();
 
-    ssize_t send(cstring message);
+    ssize_t send(cstring message, int flags = 0);
 
     std::string recv();
 
@@ -27,7 +27,9 @@ public:
 
     void close();
 
-private:
+    void shutdown();
+
+ private:
     int socket_desc;
 };
 #endif // TCP_SOCKET_H

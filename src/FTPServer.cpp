@@ -38,7 +38,7 @@ MySqlClient::DBUser auth(TcpSocket *client) {
     while(request.command() != "USER") {
         reply = "130 Sign in first\r\n";
         printf("< %s", reply.c_str());
-        client->send(reply);
+        client->send(reply, 0);
 
         request = tmp = client->recv();
         printf("> %s\n", tmp.c_str());
@@ -53,8 +53,9 @@ MySqlClient::DBUser auth(TcpSocket *client) {
         print_error(mysql.last_error().c_str());
         reply = "530 Sorry, error on the database server\r\n";
         printf("< %s", reply.c_str());
-        client->send(reply);
+        client->send(reply, 0);
         mysql.disconnect();
+        client->shutdown();
         client->close();
         return {};
     }
@@ -63,7 +64,7 @@ MySqlClient::DBUser auth(TcpSocket *client) {
     else
         reply = "230 OK\r\n";
     printf("< %s", reply.c_str());
-    client->send(reply);
+    client->send(reply, 0);
 
 
     if (user.uname != "anonymous") {
@@ -74,14 +75,15 @@ MySqlClient::DBUser auth(TcpSocket *client) {
         if (user.perm.id > 0) {
             reply = "230 Log in as user " + user.uname + "\r\n";
             printf("< %s", reply.c_str());
-            client->send(reply);
+            client->send(reply, 0);
 
         }
         else {
             reply = "530 Unknown user " + user.uname + "\r\n";
             printf("> %s", reply.c_str());
-            client->send(reply);
+            client->send(reply, 0);
             mysql.disconnect();
+            client->shutdown();
             client->close();
             return {};
         }
@@ -102,31 +104,30 @@ void cmdThread(TcpSocket *client, std::string ip) {
 
     reply = "220 Welcome to FTP server by Grigoriy!\r\n";
     printf("< %s", reply.c_str());
-    client->send(reply);
+    client->send(reply, 0);
 
     MySqlClient::DBUser user;
     user = auth(client);
 
-    printf("Start communication\n");
+    printf("\nStart communication\n");
     bool quit = false;
 
     std::string pwd = user.homedir;
     FileExplorer fe = FileExplorer(user.homedir);
-    do {
-        printf("wait command\n");
+    while(!quit) {
         tmp = client->recv();
         if (tmp.empty()) {
-            print_error("E: empty command from server");
+            print_error("E: empty request ");
             break;
         }
         request = tmp;
-        printf("> \"%s\"\n", tmp.c_str());
+        printf("> %s", tmp.c_str());
         SWITCH(request.command().c_str()) {
         CASE("NOOP"):
             reply = "200 OK\r\n";
             break;
             CASE("SYST"):
-            reply = "215 Unix\r\n";
+            reply = "215 UNIX Type: L8. Remote system type is UNIX.\r\n";
             break;
             CASE("STAT"):
             reply = std::string("211 Logged in ") + user.uname + "\n" + "211 End of status\r\n";
@@ -152,7 +153,7 @@ void cmdThread(TcpSocket *client, std::string ip) {
             CASE("RMD"):
         {
             if (fe.rmdir(request.arg()))
-                reply = "230 Folder was removed\r\n";
+                reply = "250 Directory removed\r\n";
             else
                 reply = "530 Error creating folder\r\n";
         }
@@ -168,7 +169,7 @@ void cmdThread(TcpSocket *client, std::string ip) {
             break;
             CASE("DELE"):
             if (fe.rm(request.arg()))
-                reply = "230 File " + request.arg() + "deleted\r\n";
+                reply = "250 File " + request.arg() + "deleted\r\n";
             else
                 reply = "530 Error deleting file\r\n";
             break;
@@ -186,22 +187,22 @@ void cmdThread(TcpSocket *client, std::string ip) {
             }
             break;
             default:
-//                  quit = true;
                 reply = "500 Unknown command " + request.command() + "\r\n";
             break;
         }
 
         if (!reply.empty()) {
             printf("< %s", reply.c_str());
-            if (client->send(reply) == 0){
+            if (client->send(reply, 0) == 0){
                 print_error("E: send failed");
                 quit = true;
             }
-        }
+        } else printf("pasv mode??\n");
 
-    } while(!quit);
+    }
 
     printf("Close socket\n");
+    client->shutdown();
     client->close();
     exit(0);
 }

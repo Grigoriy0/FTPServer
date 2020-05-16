@@ -51,8 +51,8 @@ void DataThread::start(std::string ip) {
         + ip + ','
         + std::to_string(int(port / 256)) + ','
         + std::to_string(port % 256) + ").\r\n";
-    printf("< %s\n", reply.c_str());
-    cmdSocket->send(reply);
+    printf("< %s", reply.c_str());
+    cmdSocket->send(reply, 0);
     listening->listen(1);
     dataSocket = new TcpSocket(listening->accept());
 
