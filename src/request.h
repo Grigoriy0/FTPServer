@@ -10,7 +10,7 @@ class request {
 private:
     std::string _command;
     std::string _arg;
-    uchar index; // index of '\t' or ' '
+    uchar index; // index of '\r' or ' '
 private:
     void setCommand(cstring str) {
         _command = str.substr(0, index);
@@ -26,13 +26,13 @@ public:
     request(): index(0){}
 
     request(cstring str) {
-        index = str.find_first_of(" \t");
+        index = str.find_first_of(" \r");
         setCommand(str);
         setArg(str);
     }
 
     request &operator=(cstring str) {
-        index = str.find_first_of(" \t");
+        index = str.find_first_of(" \r");
         printf("index = %d\n", (int)index);
         setCommand(str);
         setArg(str);

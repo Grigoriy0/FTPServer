@@ -27,8 +27,8 @@ inline uint16_t get_free_port(TcpSocket *sk) {
     return port;
 }
 
-void DataThread::run(DataThread *datathread) { // it's will executed in new thread
-    datathread->start("127,0,0,1");
+void DataThread::run(DataThread *datathread, std::string ip) { // it's will executed in new thread
+    datathread->start(ip);
     datathread->wait_commands();
 }
 
@@ -42,10 +42,13 @@ void DataThread::start(const std::string &ip) {
     // init passive connection
     TcpSocket *listening = new TcpSocket();
     uint16_t port = get_free_port(listening);
-    cmdSocket->send(std::string("227 Entering Passive Mode (")
-                        + ip + ','
-                        + std::to_string(int(port / 256)) + ','
-                        + std::to_string(port % 256) + ").\t\n");
+    printf("Port : %d\n", port);
+    std::string reply = std::string("227 Entering Passive Mode (")
+        + ip + ','
+        + std::to_string(int(port / 256)) + ','
+        + std::to_string(port % 256) + ").\t\n";
+    printf("< %s\n", reply.c_str());
+    cmdSocket->send(reply);
     listening->listen(1);
     *dataSocket = listening->accept();
 

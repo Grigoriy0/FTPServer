@@ -10,6 +10,9 @@ TcpSocket::TcpSocket() {
         perror("Creating socket failed");
         return;
     }
+    int num = 1;
+    if (setsockopt(socket_desc, SOL_SOCKET, SO_REUSEADDR, &num, sizeof(int)) == -1)
+        print_error("setsockopt(SO_REUSEADDR) failed");
 }
 
 

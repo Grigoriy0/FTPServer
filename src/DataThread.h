@@ -10,7 +10,7 @@ class DataThread {
 public:
     explicit DataThread(TcpSocket *cmdSocket, FileExplorer *fe, int pipe);
 
-    static void run(DataThread *datathread);
+    static void run(DataThread *datathread, std::string ip);
 
 private:
     void start(const std::string &ip);

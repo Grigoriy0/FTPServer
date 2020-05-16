@@ -7,6 +7,6 @@ EXECUTABLE := src/test.server.cpp src/MySqlClient.cpp src/TcpSocket.cpp src/AioT
 all: $(EXECUTABLE)
 	g++ -o Server $(EXECUTABLE) $(CXXFLAGS) $(LDFLAGS) $(LDLIBS)
 	echo "\n\n"
-	./Server
+	./Server 2000
 clean:
 	rm -f Server
