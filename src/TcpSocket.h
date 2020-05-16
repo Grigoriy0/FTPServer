@@ -4,7 +4,7 @@
 #ifndef TCP_SOCKET_H
 #define TCP_SOCKET_H
 #include <string>
-
+#include "defines.h"
 
 class TcpSocket
 {
@@ -23,7 +23,9 @@ public:
 
     ssize_t send(const std::string& message);
 
-    std::string recv(int size);
+    std::string recv(int size = BUF_SIZE);
+
+    int recv_to_buffer(char* buffer, int size = BUF_SIZE);
 
     void close();
 

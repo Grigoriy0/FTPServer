@@ -1,4 +1,4 @@
-#include"tcpsocket.h"
+#include"TcpSocket.h"
 #include"request.h"
 #include"defines.h"
 #include<aio.h>
@@ -19,11 +19,9 @@ public:
 
     int bytes();
 
-    bool done();
-
     int wait(int milliseconds = 5000);
 
-    void run();
+    bool run();
 
     int status();
 

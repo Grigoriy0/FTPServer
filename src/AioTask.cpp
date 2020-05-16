@@ -1,4 +1,4 @@
-#include"aiotask.h"
+#include"AioTask.h"
 #include <aio.h>
 #include <signal.h>
 #include <string.h>
@@ -11,13 +11,13 @@ bool AioTask::init_handlers(){
     sigemptyset(&sa.sa_mask);
     sa.sa_handler = _quit_h;
     if (sigaction(SIGQUIT, &sa, nullptr) == -1){
-        print_error("sigaction(SIGQUIT) failed");
+        print_error("E: sigaction(SIGQUIT) failed");
         return false;
     }
     sa.sa_flags = SA_RESTART | SA_SIGINFO;
     sa.sa_sigaction = _aio_done_h;
     if (sigaction(IO_SIGNAL, &sa, nullptr) == -1){
-        print_error("sigaction(IO_SIGNAL) failed");
+        print_error("E: sigaction(IO_SIGNAL) failed");
         return false;
     }
     return true;
@@ -43,16 +43,18 @@ void AioTask::set_buffer(char *buffer){
     _buffer = buffer;
 }
 
-void AioTask::run(){
+bool AioTask::run() {
     _cb->aio_offset = _offset;
     _cb->aio_buf = _buffer;
-    if (_type == SEND){
-        if (aio_read(_cb) == -1)
-            print_error("aio_read failed");
+    if (_type == SEND) {
+        if (aio_read(_cb) == -1) {
+            print_error("E: aio_read failed");
+            return false;
+        }
+    } else if (aio_write(_cb) == -1) {
+        print_error("E: aio_write failed");
+        return false;
     }
-    else
-        if (aio_write(_cb) == -1)
-            print_error("aio_write failed");
 }
 
 int AioTask::status(){
@@ -74,7 +76,7 @@ int AioTask::get_offset(){
 
 void AioTask::cancel(){
     if(aio_cancel(_fd, _cb) == -1)
-        print_error("aio_cancel failed");
+        print_error("E: aio_cancel failed");
 }
 
 int AioTask::wait(int milliseconds){

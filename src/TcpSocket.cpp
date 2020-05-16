@@ -1,9 +1,8 @@
-#include "tcpsocket.h"
+#include "TcpSocket.h"
 #include <stdio.h>
 #include <sys/socket.h>
 #include <arpa/inet.h>
 #include <string.h>
-#include <unistd.h>
 
 
 TcpSocket::TcpSocket() {
@@ -92,10 +91,10 @@ ssize_t TcpSocket::send(const std::string& message)
     return tr;
 }
 
-std::string TcpSocket::recv(int BUF_SIZE)
+std::string TcpSocket::recv(int size)
 {
-    char* buffer = new char[BUF_SIZE];
-    if (::recv(socket_desc, buffer, BUF_SIZE, 0) == -1)
+    char* buffer = new char[size];
+    if (::recv(socket_desc, buffer, size, 0) == -1)
     {
         perror("read failed");
         return "";
@@ -106,4 +105,13 @@ std::string TcpSocket::recv(int BUF_SIZE)
 
 void TcpSocket::close(){
     shutdown(socket_desc, SHUT_RDWR);
+}
+
+int TcpSocket::recv_to_buffer(char *buffer, int size) {
+    int res;
+    if ((res = ::recv(socket_desc, buffer, size, 0)) == -1)
+    {
+        perror("read failed");
+    }
+    return res;
 }

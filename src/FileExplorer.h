@@ -11,10 +11,10 @@
 #include <utility>
 #define download_n_upload_files public
 
-class FileCommander {
+class FileExplorer {
 public:
 
-    explicit FileCommander(std::string root_dir): root(std::move(root_dir)){}
+    explicit FileExplorer(std::string root_dir): root(std::move(root_dir)){}
 
     std::vector<std::string> ls(const std::string &dir) ;
     /*LIST

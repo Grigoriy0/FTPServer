@@ -48,18 +48,18 @@ public:
         _f = f;
         _tu_args = std::tuple<argT...>(args...);
         if(pthread_create(&_thread_id, nullptr, (void*(*)(void*))_Launch, this) == -1)
-            print_error("pthread_create failed ");
+            print_error("E: pthread_create failed ");
     }
 
     void detach() {
         if (pthread_detach(_thread_id) != 0)
-            print_error("pthread_detach failed ");
+            print_error("E: pthread_detach failed ");
     }
 
     void join() {
         int status = pthread_join(_thread_id, nullptr);
         if (status != 0)
-            print_error("pthread_join failed ");
+            print_error("E: pthread_join failed ");
     }
 
     pthread_t get_id(){ 
@@ -68,7 +68,7 @@ public:
 
     void cancel() {
         if (pthread_cancel(_thread_id) != 0)
-            print_error("pthread_cancel failed ");
+            print_error("E: pthread_cancel failed ");
         _finished = true;
     }
 

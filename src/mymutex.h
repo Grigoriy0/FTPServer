@@ -1,6 +1,6 @@
 #include<string>
 
-#include"mythread.h"
+#include"Thread.h"
 
 #ifndef MY_MUTEX_H
 #define MY_MUTEX_H
@@ -11,11 +11,11 @@ public:
 	Mutex(const std::string &name) {
 #if defined(WIN_OS)
 		if ((_handle = CreateMutex(NULL, true, name.c_str())) == 0) {
-			print_error("CreateMutex failed ");
+			print_error("E: CreateMutex failed ");
 		}
 #elif defined(LIN_OS)
         if (pthread_mutex_init(&_mu, nullptr) != 0){
-            print_error("pthread_mutex_init failed ");
+            print_error("E: pthread_mutex_init failed ");
         }
 #endif
 	}
@@ -27,7 +27,7 @@ public:
 		}
 #elif defined(LIN_OS)
         if (pthread_mutex_lock(&_mu) != 0){
-            print_error("pthread_mutex_lock failed ");
+            print_error("E: pthread_mutex_lock failed ");
         }
 #endif
 	}
@@ -39,7 +39,7 @@ public:
 		}
 #elif defined(LIN_OS)
         if (pthread_mutex_lock(&_mu) != 0){
-            print_error("pthread_mutex_lock failed ");
+            print_error("E: pthread_mutex_lock failed ");
         }
 #endif
 	}
@@ -51,7 +51,7 @@ public:
 		}
 #elif defined(LIN_OS)
         if (pthread_mutex_destroy(&_mu) != 0){
-            print_error("pthread_mutex_destroy failed ");
+            print_error("E: pthread_mutex_destroy failed ");
         }
 #endif
 	}
