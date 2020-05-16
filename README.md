@@ -1,16 +1,17 @@
 # FTP server
 
-Here are my pieces of code
-1. thread class
-2. mutex, mutexLocker classes
-3. tcpsocket class
-4. DBServer class (works with mysql daemon)
-5. FileCommander class (works with file system)
-## Compile
+Multithreaded FTP server for linux implemented in C++
+
+
+
+#### compile and run
 ```
+git clone https://github.com/Grigriy0/FTPServer
+sudo apt install -y\
+        libmysql++-dev\
+        libmysqlclient-dev
 make all
-```
-## Run
-```
-./Server
+
+./Server <port>
+
 ```

@@ -6,7 +6,7 @@
 #ifndef REQUEST_H
 #define REQUEST_H
 
-class request {
+class Request {
 private:
     std::string _command;
     std::string _arg;
@@ -17,23 +17,22 @@ private:
     }
 
     void setArg(cstring str) {
-        if (str.c_str()[index] != ' ')
+        if (index == 255 || str.c_str()[index] != ' ')
             _arg = "";
         else
             _arg = str.substr(index + 1, str.find_last_of(0x0D) - index - 1);
     }
 public:
-    request(): index(0){}
+    Request(): index(0){}
 
-    request(cstring str) {
+    Request(cstring str) {
         index = str.find_first_of(" \r");
         setCommand(str);
         setArg(str);
     }
 
-    request &operator=(cstring str) {
+    Request &operator=(cstring str) {
         index = str.find_first_of(" \r");
-        printf("index = %d\n", (int)index);
         setCommand(str);
         setArg(str);
         return *this;

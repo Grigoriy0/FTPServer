@@ -1,6 +1,4 @@
-//
-// Created by grigoriy on 19.2.20.
-//
+
 #ifndef TCP_SOCKET_H
 #define TCP_SOCKET_H
 #include <string>
@@ -11,7 +9,7 @@ class TcpSocket
 public:
     TcpSocket();
 
-    TcpSocket(int descriptor);
+    explicit TcpSocket(int descriptor);
 
     bool connect(const std::string& ip_address, uint16_t port);
 
@@ -21,7 +19,7 @@ public:
 
     int accept();
 
-    ssize_t send(const std::string message);
+    ssize_t send(cstring message);
 
     std::string recv();
 
@@ -31,6 +29,5 @@ public:
 
 private:
     int socket_desc;
-    bool server;
 };
 #endif // TCP_SOCKET_H

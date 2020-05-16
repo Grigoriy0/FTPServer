@@ -4,7 +4,7 @@
 #include "TcpSocket.h"
 #include "AioTask.h"
 #include "defines.h"
-#include "request.h"
+#include "Request.h"
 #include <unistd.h>
 #include <fcntl.h>
 
@@ -32,36 +32,36 @@ void DataThread::run(DataThread *datathread, std::string ip) { // it's will exec
     datathread->wait_commands();
 }
 
-DataThread::DataThread(TcpSocket *cmdSocket, FileExplorer *fe, int pipe) {
+DataThread::DataThread(TcpSocket *cmdSocket, cstring root_dir, int *pipe) {
     this->cmdSocket = cmdSocket;
     this->pipe = pipe;
-    this->fe = fe;
+    this->fe = new FileExplorer(root_dir);
 }
 
 void DataThread::start(const std::string &ip) {
     // init passive connection
     TcpSocket *listening = new TcpSocket();
-    uint16_t port = get_free_port(listening);
+    port = get_free_port(listening);
     printf("Port : %d\n", port);
     std::string reply = std::string("227 Entering Passive Mode (")
         + ip + ','
         + std::to_string(int(port / 256)) + ','
-        + std::to_string(port % 256) + ").\t\n";
+        + std::to_string(port % 256) + ").\r\n";
     printf("< %s\n", reply.c_str());
     cmdSocket->send(reply);
     listening->listen(1);
-    *dataSocket = listening->accept();
+    dataSocket = new TcpSocket(listening->accept());
 
 }
 
 void DataThread::wait_commands() {
     const int buffer_size = 300;
     char buffer[buffer_size];
-    if (read(pipe, buffer, buffer_size) == -1) {
+    if (read(pipe[0], buffer, buffer_size) == -1) {
         print_error("E: DataThread read from pipe failed");
         return;
     }
-    request req = request(buffer);
+    Request req = Request(buffer);
     SWITCH(req.command().c_str()) { // It's my commands from cmd-thread
         CASE("SEND"):
             send(req.arg());
@@ -74,6 +74,7 @@ void DataThread::wait_commands() {
             break;
     }
 }
+
 void DataThread::send(const std::string &file_to) {
     // aio_read
     // send
