@@ -25,13 +25,18 @@ inline uint16_t get_free_port(TcpSocket *sk) {
     do{
         port = rand() % (uint16_t(-1) + 1024) - 1024;
     } while(!sk->bind(port));
+    printf("Selected %d port\n", (int)port);
     return port;
 }
 
-void DataThread::run(DataThread *datathread, std::string ip) { // it's will executed in new thread
-    printf("DataThread running\n");
-    datathread->start(ip);
-    printf("Wait for commands...\n");
+void DataThread::run(DataThread *datathread, std::string data, bool activeMode) { // it's will executed in new thread
+    printf("DataThread running in %s mode\n", activeMode?"active":"passive");
+    datathread->active = true;
+    if (activeMode)
+        datathread->start_active(data);
+    else
+        datathread->start_passive(data);
+    printf("Wait for commands from cmd thread using pipe\n");
     datathread->wait_commands();
 }
 
@@ -39,9 +44,10 @@ DataThread::DataThread(TcpSocket *cmdSocket, cstring root_dir, int *pipe) {
     this->cmdSocket = cmdSocket;
     this->pipe = pipe;
     this->fe = new FileExplorer(root_dir);
+    this->active = false;
 }
 
-void DataThread::start(std::string ip) {
+void DataThread::start_passive(std::string ip) {
     std::replace(ip.begin(), ip.end(), '.', ',');
     // init passive connection
     TcpSocket *listening = new TcpSocket();
@@ -58,6 +64,21 @@ void DataThread::start(std::string ip) {
 
 }
 
+
+void DataThread::start_active(std::string address) {
+    address = address.substr(1, address.size() - 2);
+    int ip1, ip2, ip3, ip4, port1, port2;
+    sscanf(address.c_str(), "%d,%d,%d,%d,%d,%d", &ip1, &ip2, &ip3, &ip4, &port1, &port2);
+    uint16_t port = port1 * 256 + port2;
+    address = std::to_string(ip1) +"."+std::to_string(ip2)+"."+std::to_string(ip3)+"."+std::to_string(ip4);
+    TcpSocket *dtSock = new TcpSocket();
+    if (!dtSock->connect(address, port)){
+        print_error(std::string("E: dtSock.connect(") + address + ":" + std::to_string(port) + ")\r\n");
+    }
+    wait_commands();
+}
+
+
 void DataThread::wait_commands() {
     const int buffer_size = 300;
     char buffer[buffer_size];
@@ -67,16 +88,23 @@ void DataThread::wait_commands() {
     }
     Request req = Request(buffer);
     SWITCH(req.command().c_str()) { // It's my commands from cmd-thread
+        CASE("LIST"):
+            AioTask::init_handlers();
+            list(req.arg());
+        break;
         CASE("SEND"):
+            AioTask::init_handlers();
             send(req.arg());
         break;
         CASE("RECV"):
-            recv(req.arg());
+            AioTask::init_handlers();
+            recv(fe->root_dir() + fe->pwd() + req.arg());
         break;
         default:
             printf("%s\n", (std::string("unknown command ") + req.command()).c_str());
             break;
     }
+    active = false;
 }
 
 void DataThread::send(const std::string &file_to) {
@@ -86,8 +114,16 @@ void DataThread::send(const std::string &file_to) {
 }
 
 
+void DataThread::list(const std::string &dir) {
+    std::vector<std::string> result = fe->ls(dir);
+    for (auto &file: result)
+        dataSocket->send(file);
+    cmdSocket->send("250 Requested file action okay, completed.\r\n");
+}
+
 void DataThread::recv(const std::string &to_file) {
-    int out_fd = open(to_file.c_str(), O_WRONLY);
+    printf("opening file %s\n", to_file.c_str());
+    int out_fd = open(to_file.c_str(), O_WRONLY | O_CREAT);
     if (out_fd == -1) {
         print_error("E: out_fd open failed");
         return;
@@ -97,6 +133,7 @@ void DataThread::recv(const std::string &to_file) {
     AioTask task = AioTask(out_fd, false, buffer1, offset);
     bool first = true;
     do{
+        int res;
 
         if (readed == BUF_SIZE) {
             // blocking read from socket to buffer1
@@ -106,51 +143,61 @@ void DataThread::recv(const std::string &to_file) {
                 print_error("E: socket.recv(buffer1) failed");
                 break;
             }
+        } else
+            break;
+        if (first){
+            first = false;
         }
-        if (first){first = false;}
         else{
             printf("task2.wait\n");
-            if (task.wait() == -1) {
+            while ((res = task.wait()) == -1 && errno == EAGAIN);
+            if (res == -1) {
                 print_error("E: task2.wait() failed");
                 break;
             }
-            while(task.status() == EINPROGRESS){
-                printf("active wait task2\n");
-                sleep(1);
+            if (task.bytes() == 0) {
+                break;
             }
+            buffer2[task.bytes()] = 0;
         }
+        if (task.bytes() != BUF_SIZE)
+            break;
         // non-blocking write from buffer1 to file
+        printf("readed = %d\nwrited = %d\n", readed, task.bytes());
         printf("task.write(buffer1)\n");
         task.set_offset(offset += readed);
         task.set_buffer(buffer1);
-        if(!task.run()) {
+        if(!task.run(readed)) {
             print_error("E: task.write(buffer1) failed");
             break;
         }
-        if (readed == BUF_SIZE) {
+        if (readed != 0) {
             // blocking read from socket to buffer2
             printf("last socket->write(buffer2)\n");
-            readed = dataSocket->recv_to_buffer(buffer2);
+            readed = dataSocket->recv_to_buffer(buffer2, task.bytes());
             if (readed == -1) {
                 print_error("E: socket.recv(buffer1) failed");
                 break;
             }
+            if (readed == 0)
+                break;
         }
         printf("task1.wait\n");
-        if (task.wait() == -1) {
+        while ((res = task.wait()) == -1 && errno == EAGAIN);
+        if (res == -1) {
             print_error("E: task1.wait() failed");
             break;
         }
-        while(task.status() == EINPROGRESS){
-            printf("active wait task2\n");
-            sleep(1);
+        if (task.bytes() == 0) {
+            break;
         }
-        if (readed != BUF_SIZE) {
+        buffer1[task.bytes()] = 0;
+        if (readed == task.bytes()) {
             // non-blocking(aio) write from buffer2 to file
             printf("task2.write(buffer2)");
             task.set_buffer(buffer2);
             task.set_offset(offset += readed);
-            if (!task.run()) {
+            if (!task.run(readed)) {
                 print_error("E: task2.write(buffer2) failed");
                 break;
             }
@@ -159,5 +206,5 @@ void DataThread::recv(const std::string &to_file) {
             break;
     } while(true);
     close(out_fd);
-
+    printf("Done\n");
 }

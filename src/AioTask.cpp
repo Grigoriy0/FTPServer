@@ -43,7 +43,7 @@ void AioTask::set_buffer(char *buffer){
     _buffer = buffer;
 }
 
-bool AioTask::run() {
+bool AioTask::run(int bytes) {
     _cb->aio_offset = _offset;
     _cb->aio_buf = _buffer;
     if (_type == SEND) {
@@ -55,6 +55,7 @@ bool AioTask::run() {
         print_error("E: aio_write failed");
         return false;
     }
+    return true;
 }
 
 int AioTask::status(){

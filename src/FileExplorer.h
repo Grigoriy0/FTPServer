@@ -1,7 +1,3 @@
-//
-// Created by grigoriy on 24.02.20.
-//
-
 #ifndef FILECOMMANDER_H
 #define FILECOMMANDER_H
 
@@ -14,7 +10,12 @@
 class FileExplorer {
 public:
 
-    explicit FileExplorer(std::string root_dir): dir("/"), root(std::move(root_dir)){}
+    explicit FileExplorer(std::string root_dir): dir("/"){
+        if (root_dir[root_dir.size() - 1] == '/'){
+            root_dir.pop_back();
+        }
+        root = root_dir;
+    }
 
     std::vector<std::string> ls(const std::string &dir) ;
     /*LIST
@@ -28,7 +29,7 @@ public:
     /* SIZE
     * */
 
-    bool mkdir(const std::string &path_namedir);
+    bool mkdir(std::string path_namedir);
     /* MKD
     * */
 
@@ -41,8 +42,20 @@ public:
     * */
 
     std::string pwd();
+    /* PWD
+     * */
 
-download_n_upload_files:
+    std::string root_dir();
+
+    std::string cd_up();
+    /* CDUP
+     * */
+
+    bool cd(std::string next_dir);
+    /* CWD
+    * */
+
+ download_n_upload_files:
 
     void write(const std::string &file, char *data, size_t size);
 

@@ -1,12 +1,10 @@
-//
-// Created by grigoriy on 24.02.20.
-//
-
 #include "FileExplorer.h"
+#include "defines.h"
 #include <sys/stat.h>
 #include <dirent.h>
 #include <string.h>
 #include <fstream>
+#include <libgen.h>
 
 std::vector<std::string> FileExplorer::ls(const std::string &dir) {
     std::vector<std::string> result = {};
@@ -72,13 +70,28 @@ uint64_t FileExplorer::size(const std::string &filename) {
     return file_stat.st_size;
 }
 
-bool FileExplorer::mkdir(const std::string &path_namedir)
-{
-    printf("%s\n", (root + path_namedir).c_str());
-    ::mkdir((root).c_str(),  S_IRWXU | S_IRWXG | S_IRGRP);
-    if (::mkdir((root + path_namedir).c_str(), S_IRWXU | S_IRWXG | S_IRGRP))
+bool FileExplorer::mkdir(std::string path_namedir) {
+    if (path_namedir.empty())
+        return false;
+    while (path_namedir[0] == '/') {
+        path_namedir = path_namedir.substr(1);
+        if (path_namedir.empty())
+            return false;
+    }
+    while (path_namedir[path_namedir.size() - 1] == '/') {
+        path_namedir.pop_back();
+        if (path_namedir.empty())
+            return false;
+    }
+    if (path_namedir.empty())
+        return false;
+
+    std::string folder = root;
+    folder += dir + path_namedir;
+    printf("creating %s\n", folder.c_str());
+    if (::mkdir(folder.c_str(), S_IRWXU | S_IRWXG | S_IRGRP))
     {
-        printf("Error mkdir %s\n", path_namedir.c_str());
+        printf("E: Error mkdir %s %d\n", folder.c_str(), errno);
         return false;
     }
     return true;
@@ -121,6 +134,56 @@ char *FileExplorer::read(const std::string &file, size_t size, int offset) {
 }
 
 
-std::string FileExplorer::pwd(){
+std::string FileExplorer::pwd() {
     return dir;
+}
+
+
+std::string FileExplorer::root_dir() {
+    return root;
+}
+
+
+std::string FileExplorer::cd_up() {
+    if (dir == "/")
+        return root;
+    char buffer[100];
+    strcpy(buffer, root.c_str());
+    strcpy(buffer, dir.c_str());
+    printf("buffer = %s\n", buffer);
+    dir = dirname(buffer);
+    if (dir[dir.size() - 1] != '/')
+        dir += '/';
+
+    printf("Dir up to dir=%s\n", dir.c_str());
+    return dir;
+}
+
+
+bool FileExplorer::cd(std::string next_dir) {
+    if (next_dir.empty())
+        return false;
+    while (next_dir[0] == '/') {
+        next_dir = next_dir.substr(1);
+        if (next_dir.empty())
+            return false;
+    }
+    while (next_dir[next_dir.size() - 1] == '/') {
+        next_dir.pop_back();
+        if (next_dir.empty())
+            return false;
+    }
+    if (next_dir.empty())
+        return false;
+    std::string result_dir = root + dir;
+    result_dir += next_dir;
+
+    printf("result_dir = %s\n", result_dir.c_str());
+    DIR *d = opendir(result_dir.c_str());
+    if (d) {
+        dir += next_dir + "/";
+        printf("root = %s\ndir = %s\n", root.c_str(), dir.c_str());
+        closedir(d);
+        return true;
+    } else return false;
 }

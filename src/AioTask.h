@@ -21,7 +21,7 @@ public:
 
     int wait(int milliseconds = 5000);
 
-    bool run();
+    bool run(int bytes = BUF_SIZE);
 
     int status();
 
