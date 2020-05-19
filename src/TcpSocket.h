@@ -29,6 +29,8 @@ public:
 
     void shutdown();
 
+    int getFD();
+
  private:
     int socket_desc;
 };

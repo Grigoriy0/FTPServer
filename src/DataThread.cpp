@@ -8,6 +8,7 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <algorithm>
+#include <sys/sendfile.h>
 
 static sig_atomic_t aio_abort = 0;
 
@@ -65,15 +66,19 @@ void DataThread::start_passive(std::string ip) {
 }
 
 
-void DataThread::start_active(std::string address) {
+void DataThread::start_active(std::string address) { //129.168.0.1
     address = address.substr(1, address.size() - 2);
     int ip1, ip2, ip3, ip4, port1, port2;
     sscanf(address.c_str(), "%d,%d,%d,%d,%d,%d", &ip1, &ip2, &ip3, &ip4, &port1, &port2);
     uint16_t port = port1 * 256 + port2;
     address = std::to_string(ip1) +"."+std::to_string(ip2)+"."+std::to_string(ip3)+"."+std::to_string(ip4);
     TcpSocket *dtSock = new TcpSocket();
-    if (!dtSock->connect(address, port)){
+    if (!dtSock->connect(address, port)) {
         print_error(std::string("E: dtSock.connect(") + address + ":" + std::to_string(port) + ")\r\n");
+        std::string reply = "500 Error connection to your host\r\n";
+        printf("< %s", reply.c_str());
+        cmdSocket->send(reply);
+        return;
     }
     wait_commands();
 }
@@ -84,20 +89,21 @@ void DataThread::wait_commands() {
     char buffer[buffer_size];
     if (read(pipe[0], buffer, buffer_size) == -1) {
         print_error("E: DataThread read from pipe failed");
+        std::string reply = "500 Error on the server while reading from pipe\r\n";
+        printf("< %s", reply.c_str());
+        cmdSocket->send(reply);
         return;
     }
     Request req = Request(buffer);
+    AioTask::init_handlers();
     SWITCH(req.command().c_str()) { // It's my commands from cmd-thread
         CASE("LIST"):
-            AioTask::init_handlers();
             list(req.arg());
         break;
         CASE("SEND"):
-            AioTask::init_handlers();
-            send(req.arg());
+            send(fe->root_dir() + fe->pwd() + req.arg());
         break;
         CASE("RECV"):
-            AioTask::init_handlers();
             recv(fe->root_dir() + fe->pwd() + req.arg());
         break;
         default:
@@ -107,25 +113,63 @@ void DataThread::wait_commands() {
     active = false;
 }
 
-void DataThread::send(const std::string &file_to) {
-    // aio_read
-    // send
-
+void DataThread::send(const std::string &file_from) {
+    std::string reply = "226 Data transfered\r\n";
+    printf("opening file %s\n", file_from.c_str());
+    int fd;
+    if ((fd = open(file_from.c_str(), O_RDONLY, S_IRUSR | S_IWUSR | S_IRGRP)) == -1) {
+        print_error("open failed");
+        reply = "500 Error file not found\r\n";
+        printf("< %s", reply.c_str());
+        cmdSocket->send(reply);
+        return;
+    }
+    off_t offset;
+    const ssize_t count = BUF_SIZE;
+    int writed = 0;
+    int error_count = 0;
+    do {
+        writed = ::sendfile(dataSocket->getFD(), fd, &offset, count);
+        if (writed == -1) {
+            print_error("sendfile failed offset = " + std::to_string(offset));
+            if (++error_count == 5) {
+                print_error("5 times error");
+                reply = "500 Error on the server while io operations\r\n";
+                printf("< %s", reply.c_str());
+                cmdSocket->send(reply);
+                return;
+            }
+        }
+        else {
+            error_count = 0;
+            offset += BUF_SIZE;
+        }
+    } while(writed == BUF_SIZE);
+    printf("Done\n");
+    close(fd);
+    printf("< %s", reply.c_str());
+    cmdSocket->send(reply);
 }
 
 
 void DataThread::list(const std::string &dir) {
-    std::vector<std::string> result = fe->ls(dir);
-    for (auto &file: result)
-        dataSocket->send(file);
-    cmdSocket->send("250 Requested file action okay, completed.\r\n");
+    std::vector<std::string> file_list = fe->ls(dir);
+    std::string result;
+    for (auto &file: file_list)
+        result += file + '\n';
+    dataSocket->send(result);
+    cmdSocket->send("226 Requested file action okay, completed.\r\n");
 }
 
 void DataThread::recv(const std::string &to_file) {
-    printf("opening file %s\n", to_file.c_str());
-    int out_fd = open(to_file.c_str(), O_WRONLY | O_CREAT);
+    printf("opening file %s\n", (to_file).c_str());
+    std::string reply;
+    int out_fd = open(to_file.c_str(), O_WRONLY | O_CREAT, S_IRUSR | S_IWUSR | S_IRGRP);
     if (out_fd == -1) {
         print_error("E: out_fd open failed");
+        reply = "500 Error opening file\r\n";
+        printf("< %s", reply.c_str());
+        cmdSocket->send(reply);
         return;
     }
     int offset = 0;
@@ -141,6 +185,7 @@ void DataThread::recv(const std::string &to_file) {
             readed = dataSocket->recv_to_buffer(buffer1);
             if (readed == -1) {
                 print_error("E: socket.recv(buffer1) failed");
+                reply = "500 Error on the server while io operations\r\n";
                 break;
             }
         } else
@@ -148,11 +193,12 @@ void DataThread::recv(const std::string &to_file) {
         if (first){
             first = false;
         }
-        else{
+        else {
             printf("task2.wait\n");
             while ((res = task.wait()) == -1 && errno == EAGAIN);
             if (res == -1) {
                 print_error("E: task2.wait() failed");
+                reply = "500 Error on the server while io operations\r\n";
                 break;
             }
             if (task.bytes() == 0) {
@@ -160,8 +206,10 @@ void DataThread::recv(const std::string &to_file) {
             }
             buffer2[task.bytes()] = 0;
         }
-        if (task.bytes() != BUF_SIZE)
+        if (task.bytes() != BUF_SIZE) {
+            reply = "226 Data transfered\r\n";
             break;
+        }
         // non-blocking write from buffer1 to file
         printf("readed = %d\nwrited = %d\n", readed, task.bytes());
         printf("task.write(buffer1)\n");
@@ -169,6 +217,7 @@ void DataThread::recv(const std::string &to_file) {
         task.set_buffer(buffer1);
         if(!task.run(readed)) {
             print_error("E: task.write(buffer1) failed");
+            reply = "500 Error on the server while io operations\r\n";
             break;
         }
         if (readed != 0) {
@@ -177,18 +226,23 @@ void DataThread::recv(const std::string &to_file) {
             readed = dataSocket->recv_to_buffer(buffer2, task.bytes());
             if (readed == -1) {
                 print_error("E: socket.recv(buffer1) failed");
+                reply = "500 Error on the server while io operations\r\n";
                 break;
             }
-            if (readed == 0)
+            if (readed == 0) {
+                reply = "226 Data transfered\r\n";
                 break;
+            }
         }
         printf("task1.wait\n");
         while ((res = task.wait()) == -1 && errno == EAGAIN);
         if (res == -1) {
             print_error("E: task1.wait() failed");
+            reply = "500 Error on the server while io operations\r\n";
             break;
         }
         if (task.bytes() == 0) {
+            reply = "226 Data transfered\r\n";
             break;
         }
         buffer1[task.bytes()] = 0;
@@ -199,12 +253,16 @@ void DataThread::recv(const std::string &to_file) {
             task.set_offset(offset += readed);
             if (!task.run(readed)) {
                 print_error("E: task2.write(buffer2) failed");
+                reply = "500 Error on the server while io operations\r\n";
                 break;
             }
         }
-        else
+        else {
+            reply = "226 Data transfered\r\n";
             break;
+        }
     } while(true);
     close(out_fd);
-    printf("Done\n");
+    printf("< %s", reply.c_str());
+    cmdSocket->send(reply);
 }

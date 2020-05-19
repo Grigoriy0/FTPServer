@@ -44,7 +44,7 @@ bool TcpSocket::connect(const std::string& ip_address, uint16_t port)
 
     if (::connect(socket_desc, (const sockaddr*)server, sizeof(sockaddr_in)) == -1)
     {
-        perror("connect failed ");
+        print_error("connect failed ");
         return false;
     }
 
@@ -61,7 +61,7 @@ bool TcpSocket::bind(uint16_t port)
 
     if(::bind(socket_desc, (sockaddr*)&server, sizeof(sockaddr_in)) < 0)
     {
-        perror("bind failed ");
+        print_error("bind failed ");
         return false;
     }
     return true;
@@ -71,7 +71,7 @@ bool TcpSocket::bind(uint16_t port)
 bool TcpSocket::listen(int numConnections)
 {
     if (::listen(socket_desc, numConnections) == -1){
-        perror("listen failed ");
+        print_error("listen failed ");
         return false;
     }
     return true;
@@ -87,7 +87,7 @@ int TcpSocket::accept()
         new_socket = ::accept(socket_desc, (struct sockaddr *)&client, &c);
         if (new_socket == -1 && errno != EINTR)
         {
-            perror("accept failed ");
+            print_error("accept failed ");
             return 0;
         }
     } while(new_socket == -1);
@@ -100,7 +100,7 @@ ssize_t TcpSocket::send(cstring message, int flags)
     ssize_t tr;
     if((tr = ::send(socket_desc, message.c_str(), message.size(), 0)) == -1)
     {
-        perror("send failed ");
+        print_error("send failed ");
         return 0;
     }
     return tr;
@@ -112,7 +112,7 @@ std::string TcpSocket::recv()
     int res;
     if ((res = ::recv(socket_desc, buffer, BUF_SIZE, 0)) == -1)
     {
-        perror("recv failed ");
+        print_error("recv failed ");
         return "";
     }
     if (res == 0)
@@ -134,7 +134,11 @@ int TcpSocket::recv_to_buffer(char *buffer, int size) {
     int res;
     if ((res = ::recv(socket_desc, buffer, size, 0)) == -1)
     {
-        perror("read failed ");
+        print_error("read failed ");
     }
     return res;
+}
+
+int TcpSocket::getFD() {
+    return socket_desc;
 }
