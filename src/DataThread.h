@@ -13,7 +13,7 @@ public:
 
     static void run(DataThread *datathread, std::string data, bool activeMode);
 
-    bool isStillActive(){ return active;}
+    bool works(){ return active;}
 
 private:
     void start_passive(std::string ip);

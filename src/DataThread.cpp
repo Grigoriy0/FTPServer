@@ -7,8 +7,10 @@
 #include "Request.h"
 #include <unistd.h>
 #include <fcntl.h>
-#include <algorithm>
 #include <sys/sendfile.h>
+
+#include <random>
+#include <algorithm>
 
 static sig_atomic_t aio_abort = 0;
 
@@ -17,16 +19,14 @@ static void handler_abort(int sig) {// SIGABRT
     aio_abort = 1;
 }
 
-char buffer1[BUF_SIZE];
-char buffer2[BUF_SIZE];
 
-
-inline uint16_t get_free_port(TcpSocket *sk) {
+inline uint16_t bind_free_port(TcpSocket *sk, uint16_t from_range = 1024, uint16_t to_range = 3000) {
     uint16_t port;
+    std::default_random_engine generator;
+    std::uniform_int_distribution<int> distribution(from_range, to_range);
     do{
-        port = rand() % (uint16_t(-1) + 1024) - 1024;
+        port = distribution(generator);
     } while(!sk->bind(port));
-    printf("Selected %d port\n", (int)port);
     return port;
 }
 
@@ -39,6 +39,7 @@ void DataThread::run(DataThread *datathread, std::string data, bool activeMode) 
         datathread->start_passive(data);
     printf("Wait for commands from cmd thread using pipe\n");
     datathread->wait_commands();
+    datathread->active = false;
 }
 
 DataThread::DataThread(TcpSocket *cmdSocket, cstring root_dir, int *pipe) {
@@ -51,16 +52,24 @@ DataThread::DataThread(TcpSocket *cmdSocket, cstring root_dir, int *pipe) {
 void DataThread::start_passive(std::string ip) {
     std::replace(ip.begin(), ip.end(), '.', ',');
     // init passive connection
+    std::string reply;
     TcpSocket *listening = new TcpSocket();
-    port = get_free_port(listening);
+    port = bind_free_port(listening);
     printf("Port : %d\n", port);
-    std::string reply = std::string("227 Entering Passive Mode (")
+    if (!listening->listen(1)) {
+        print_error("E: Cannot listening port");
+        reply = "500 Error on the server\r\n";
+        printf("< %s", reply.c_str());
+        cmdSocket->send(reply);
+        return;
+    }
+    printf("waiting for client connection to data port\n");
+    reply = std::string("227 Entering Passive Mode (")
         + ip + ','
         + std::to_string(int(port / 256)) + ','
         + std::to_string(port % 256) + ").\r\n";
     printf("< %s", reply.c_str());
-    cmdSocket->send(reply, 0);
-    listening->listen(1);
+    cmdSocket->send(reply);
     dataSocket = new TcpSocket(listening->accept());
 
 }
@@ -71,7 +80,7 @@ void DataThread::start_active(std::string address) { //129.168.0.1
     int ip1, ip2, ip3, ip4, port1, port2;
     sscanf(address.c_str(), "%d,%d,%d,%d,%d,%d", &ip1, &ip2, &ip3, &ip4, &port1, &port2);
     uint16_t port = port1 * 256 + port2;
-    address = std::to_string(ip1) +"."+std::to_string(ip2)+"."+std::to_string(ip3)+"."+std::to_string(ip4);
+    address = std::to_string(ip1) + "." + std::to_string(ip2) + "." + std::to_string(ip3) + "." + std::to_string(ip4);
     TcpSocket *dtSock = new TcpSocket();
     if (!dtSock->connect(address, port)) {
         print_error(std::string("E: dtSock.connect(") + address + ":" + std::to_string(port) + ")\r\n");
@@ -80,6 +89,9 @@ void DataThread::start_active(std::string address) { //129.168.0.1
         cmdSocket->send(reply);
         return;
     }
+    std::string reply = "200 Command OK\r\n";
+    printf("< %s", reply.c_str());
+    cmdSocket->send(reply);
     wait_commands();
 }
 
@@ -95,7 +107,6 @@ void DataThread::wait_commands() {
         return;
     }
     Request req = Request(buffer);
-    AioTask::init_handlers();
     SWITCH(req.command().c_str()) { // It's my commands from cmd-thread
         CASE("LIST"):
             list(req.arg());
@@ -110,6 +121,8 @@ void DataThread::wait_commands() {
             printf("%s\n", (std::string("unknown command ") + req.command()).c_str());
             break;
     }
+    dataSocket->shutdown();
+    dataSocket->close();
     active = false;
 }
 
@@ -129,11 +142,11 @@ void DataThread::send(const std::string &file_from) {
     int writed = 0;
     int error_count = 0;
     do {
-        writed = ::sendfile(dataSocket->getFD(), fd, &offset, count);
+        writed = ::sendfile(dataSocket->getFD(), fd, &offset, count); // #include<sys/sendfile.h>
         if (writed == -1) {
             print_error("sendfile failed offset = " + std::to_string(offset));
-            if (++error_count == 5) {
-                print_error("5 times error");
+            if (++error_count == 3) {
+                print_error("3 times error");
                 reply = "500 Error on the server while io operations\r\n";
                 printf("< %s", reply.c_str());
                 cmdSocket->send(reply);
@@ -153,7 +166,12 @@ void DataThread::send(const std::string &file_from) {
 
 
 void DataThread::list(const std::string &dir) {
+    std::string reply = "125 Transfer starting\r\n";
+    printf("< %s", reply.c_str());
+    cmdSocket->send(reply);
+
     std::vector<std::string> file_list = fe->ls(dir);
+
     std::string result;
     for (auto &file: file_list)
         result += file + '\n';
@@ -162,6 +180,10 @@ void DataThread::list(const std::string &dir) {
 }
 
 void DataThread::recv(const std::string &to_file) {
+    char buffer1[BUF_SIZE];
+    char buffer2[BUF_SIZE];
+
+    AioTask::init_handlers();
     printf("opening file %s\n", (to_file).c_str());
     std::string reply;
     int out_fd = open(to_file.c_str(), O_WRONLY | O_CREAT, S_IRUSR | S_IWUSR | S_IRGRP);

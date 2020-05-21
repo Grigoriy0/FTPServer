@@ -6,22 +6,30 @@
 #include <fstream>
 #include <libgen.h>
 
-std::vector<std::string> FileExplorer::ls(const std::string &dir) {
+std::vector<std::string> FileExplorer::ls(const std::string &selected_dir) {
     std::vector<std::string> result = {};
     DIR* dirStream;
     struct dirent *dp;
-
-    dirStream = opendir((root + dir).c_str());
+    printf("open dir %s\n", (root + dir + selected_dir).c_str());
+    system(std::string("ls -1 " + root + dir + selected_dir).c_str());
+    dirStream = opendir((root + dir + selected_dir).c_str());
+    result.emplace_back("---\n");
     while ((dp = readdir(dirStream)) != nullptr) {
         result.emplace_back(std::string(dp->d_name) + (dp->d_type == 4 ? "/" : ""));
     }
     closedir(dirStream);
+    for (int i = 0; i < result.size(); ++i){
+        if (result[i] == "../" || result[i] == "./"){
+            result.erase(result.begin() + i);
+            --i;
+        }
+    }
+    result.emplace_back("---\n");
     return result;
 }
 
 bool FileExplorer::rm(const std::string &filename) {
-    if (::remove((root + filename).c_str()) == -1)
-    {
+    if (::remove((root + dir + filename).c_str()) == -1) {
         printf("Error removing file %s\n", filename.c_str());
         return false;
     }
@@ -29,19 +37,19 @@ bool FileExplorer::rm(const std::string &filename) {
 }
 
 
-bool FileExplorer::rmdir(const std::string &path_namedir) { // with all nested files
+bool FileExplorer::rmdir(std::string path_namedir) { // with all nested files
     auto nested_files = ls(path_namedir);
-    if (nested_files.size() != 2) // "." and ".."
+    if (!nested_files.empty()) // has no nested files or directories
     {
+        printf("recurse");
         for (const auto & nested_file : nested_files) {
-            if (nested_file == "./" || nested_file == "../")
-                continue;
-            if (nested_file[nested_file.size() - 1] == '/') {
+            printf("rmdir %s\n", nested_file.c_str());
+            if (nested_file[nested_file.size() - 1] == '/') { // directory
                 // it's a directory
-                std::string dir = path_namedir;
                 if (path_namedir[path_namedir.size() - 1] != '/')
-                    dir += '/';
-                rmdir(dir + nested_file);
+                    path_namedir += '/';
+                printf("rmdir %s\n", (root + dir + path_namedir + nested_file).c_str());
+                rmdir(root + dir + path_namedir + nested_file);
             }
             else {
                 // it's a simple file
@@ -56,8 +64,9 @@ bool FileExplorer::rmdir(const std::string &path_namedir) { // with all nested f
             }
         }
     }
-    if (::remove((root + path_namedir).c_str())) { // empty directory
-        printf("E: removing directory %s\n", path_namedir.c_str());
+    printf("delete %s\n", (root+ dir+path_namedir).c_str());
+    if (::remove((root + dir + path_namedir).c_str())) { // empty directory
+        printf("E: removing directory %s\n", (dir + path_namedir).c_str());
         return false;
     }
     return true;
@@ -73,7 +82,7 @@ uint64_t FileExplorer::size(const std::string &filename) {
 bool FileExplorer::mkdir(std::string path_namedir) {
     if (path_namedir.empty())
         return false;
-    while (path_namedir[0] == '/') {
+    while (path_namedir[0] == '/' || path_namedir[0] == '.') {
         path_namedir = path_namedir.substr(1);
         if (path_namedir.empty())
             return false;
@@ -108,7 +117,7 @@ bool FileExplorer::move(const std::string &what_path, std::string &path_to) {
 
 void FileExplorer::write(const std::string &file, char *data, size_t size) {
     std::ofstream out;
-    out.open(file, std::ios::binary | std::ios::app);
+    out.open(root + dir + file, std::ios::binary | std::ios::app);
     if (!out.good())
         out.open(file);
     out.write(data, size);
@@ -118,7 +127,7 @@ void FileExplorer::write(const std::string &file, char *data, size_t size) {
 
 char *FileExplorer::read(const std::string &file, size_t size, int offset) {
     std::ifstream in;
-    in.open(file, std::ios_base::binary);
+    in.open(root + dir + file, std::ios_base::binary);
     if(!in.good())
     {
         std::ofstream of(file); // create new
@@ -150,12 +159,10 @@ std::string FileExplorer::cd_up() {
     char buffer[100];
     strcpy(buffer, root.c_str());
     strcpy(buffer, dir.c_str());
-    printf("buffer = %s\n", buffer);
     dir = dirname(buffer);
     if (dir[dir.size() - 1] != '/')
         dir += '/';
 
-    printf("Dir up to dir=%s\n", dir.c_str());
     return dir;
 }
 
@@ -163,7 +170,7 @@ std::string FileExplorer::cd_up() {
 bool FileExplorer::cd(std::string next_dir) {
     if (next_dir.empty())
         return false;
-    while (next_dir[0] == '/') {
+    while (next_dir[0] == '/' || next_dir[0] == '.') {
         next_dir = next_dir.substr(1);
         if (next_dir.empty())
             return false;
@@ -178,11 +185,9 @@ bool FileExplorer::cd(std::string next_dir) {
     std::string result_dir = root + dir;
     result_dir += next_dir;
 
-    printf("result_dir = %s\n", result_dir.c_str());
     DIR *d = opendir(result_dir.c_str());
     if (d) {
         dir += next_dir + "/";
-        printf("root = %s\ndir = %s\n", root.c_str(), dir.c_str());
         closedir(d);
         return true;
     } else return false;

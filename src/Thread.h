@@ -66,10 +66,12 @@ public:
         return _thread_id; 
     }
 
-    void cancel() {
-        if (pthread_cancel(_thread_id) != 0)
+    bool cancel() {
+        if (pthread_cancel(_thread_id) != 0) {
             print_error("E: pthread_cancel failed ");
-        _finished = true;
+            return false;
+        }
+        return _finished = true;
     }
 
 

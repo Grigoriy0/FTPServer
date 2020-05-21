@@ -1,14 +1,18 @@
 
 
 #include <cstring>
+#include <sys/socket.h>
+#include <arpa/inet.h>
+
+
 #include "TcpSocket.h"
 #include "FileExplorer.h"
 #include "DataThread.h"
 #include "FTPServer.h"
 #include "MySqlClient.h"
 #include "Request.h"
-#include <sys/socket.h>
-#include <arpa/inet.h>
+#include "Client.h"
+
 
 FTPServer::FTPServer(cstring root, uint16_t port, int max_conn) :
 port(port), root_dir(root), max_connections(max_conn) {
@@ -103,169 +107,187 @@ MySqlClient::DBUser auth(TcpSocket *client) {
     return user;
 }
 
-void cmdThread(FTPServer::Client *me, TcpSocket *client, std::string ip) {
+void cmdThread(Client *me, std::string ip) {
     printf("thread started\n");
     std::string reply;
     Request request;
     std::string tmp;
-    FTPServer::Client client_info{};
-
-    client_info.cmdSocket = client;
-    client_info._type = FTPServer::Client::ASCII;
 
     reply = "220 Welcome to FTP server by Grigoriy!\r\n";
     printf("< %s", reply.c_str());
-    client->send(reply, 0);
+    me->cmdSocket->send(reply, 0);
 
     MySqlClient::DBUser user;
-    user = auth(client);
+    user = auth(me->cmdSocket);
+    me->fe = new FileExplorer(user.homedir);
 
-    printf("\nStart communication\n");
     bool quit = false;
 
     std::string pwd = user.homedir;
-    FileExplorer fe = FileExplorer(user.homedir);
     while(!quit) {
-        tmp = client->recv();
+        std::cout << "> " << std::flush;
+        tmp = me->cmdSocket->recv();
         if (tmp.empty()) {
             printf("W: empty request. Exit\n");
             break;
         }
         request = tmp;
-        printf("> %s", tmp.c_str());
+        printf("%s", tmp.c_str());
         SWITCH(request.command().c_str()) {
-            CASE("TYPE"):client_info._type = request.arg() == "A" ? FTPServer::Client::ASCII : FTPServer::Client::BIN;
+            CASE("TYPE"):me->_type = request.arg() == "A" ? Client::ASCII : Client::BIN;
                 reply = std::string("200 Type ") + (request.arg() == "A" ? "ASCII" : "BINARY") + "\r\n";
                 break;
-                CASE("NOOP"):reply = "200 Command OK\r\n";
+            CASE("NOOP"):reply = "200 Command OK\r\n";
                 break;
-                CASE("SYST"):reply = "215 UNIX Type: L8. Remote system type is UNIX.\r\n";
+            CASE("SYST"):reply = "215 UNIX Type: L8. Remote system TransferType is UNIX.\r\n";
                 break;
-                CASE("STAT"):reply = std::string("211 Logged in ") + user.uname + "\n" + "211 End of status\r\n";
+            CASE("STAT"):reply = std::string("211 Logged in ") + user.uname + "\n" + "211 End of status\r\n";
                 break;
-                CASE("QUIT"):reply = "221 Goodbye\r\n";
+            CASE("QUIT"):reply = "221 Goodbye\r\n";
                 quit = true;
                 break;
-                CASE("HELP"):reply = "500 I don't have man for this command\r\n";
+            CASE("HELP"):reply = "500 I don't have man for this command\r\n";
                 break;
-                CASE("PWD"):reply = "257 \"" + fe.pwd() + "\" is the current directory\r\n";
+            CASE("PWD"):reply = "257 \"" + me->fe->pwd() + "\" is the current directory\r\n";
                 break;
-                CASE("MKD"): {
-                if (fe.mkdir(request.arg()))
+            CASE("MKD"): {
+                if (me->fe->mkdir(request.arg()))
                     reply = "230 Created dir " + request.arg() + "\r\n";
                 else
                     reply = "530 Error creating dir\r\n";
-            }
+                }
                 break;
-                CASE("RMD"): {
-                if (fe.rmdir(request.arg()))
+            CASE("RMD"): {
+                if (me->fe->rmdir(request.arg()))
                     reply = "250 Directory removed\r\n";
                 else
                     reply = "530 Error creating folder\r\n";
-            }
+                }
                 break;
-                CASE("SIZE"): {
-                uint64_t size = fe.size(request.arg());
+            CASE("SIZE"): {
+                uint64_t size = me->fe->size(request.arg());
                 if (size != -1)
                     reply = "230 Size = " + std::to_string(size) + "\r\n";
                 else
                     reply = "530 Error getting size of file " + request.arg() + "\r\n";
-            }
+                }
                 break;
-                CASE("DELE"):
-                if (fe.rm(request.arg()))
+            CASE("DELE"):
+                if (me->fe->rm(request.arg()))
                     reply = "250 File " + request.arg() + "deleted\r\n";
                 else
                     reply = "530 Error deleting file\r\n";
                 break;
-                CASE("PASV"): {
+            CASE("PASV"): {
                 int *p = new int[2];
                 if (pipe(p) == -1) {
                     print_error("E: pipe failed");
                     reply = "550 Error on the server\r\n";
                     break;
-                } else reply = "";
-                client_info.dt_info = new DataThread(client, user.homedir, p);
-                memcpy(client_info.pipe, p, 2 * sizeof(int));
+                }
+                reply.clear();
+                me->dt_info = new DataThread(me->cmdSocket, user.homedir, p);
+                memcpy(me->pipe, p, 2 * sizeof(int));
                 // start_passive thread
-                client_info.dt =
-                    new Thread<void, DataThread *, std::string, bool>{DataThread::run, client_info.dt_info, ip, false};
-            }
+                me->dt =
+                    new Thread<void, DataThread *, std::string, bool>{DataThread::run, me->dt_info, ip, false};
+                }
                 break;
-                CASE("PORT"): {
+            CASE("PORT"): {
                 int *p = new int[2];
                 if (pipe(p) == -1) {
                     print_error("E: pipe failed");
                     reply = "550 Error on the server\r\n";
                     break;
-                } else reply = "200 Command okay.\r\n";
-                client_info.dt_info = new DataThread(client, user.homedir, p);
-                memcpy(client_info.pipe, p, 2 * sizeof(int));
+                }
+                reply.clear();
+                me->dt_info = new DataThread(me->cmdSocket, user.homedir, p);
+                memcpy(me->pipe, p, 2 * sizeof(int));
                 // start_active thread
-                client_info.dt =
-                    new Thread<void, DataThread *, std::string, bool>{DataThread::run, client_info.dt_info, ip, true};
-            }
+                me->dt =
+                    new Thread<void, DataThread *, std::string, bool>{DataThread::run, me->dt_info, ip, true};
+                }
                 break;
-                CASE("CDUP"):reply = "200 Changed directory to " + fe.cd_up() + "\r\n";
+            CASE("CDUP"):reply = "200 Changed directory to " + me->fe->cd_up() + "\r\n";
                 break;
-                CASE("CWD"):
-                if (fe.cd(request.arg()))
-                    reply = "200 Changed directory to " + fe.pwd() + "\r\n";
+            CASE("CWD"):
+                if (request.arg().substr(0, 2) == "..") {
+                    reply = "200 Changed directory to " + me->fe->cd_up() + "\r\n";
+                    break;
+                }
+                if (me->fe->cd(request.arg()))
+                    reply = "200 Changed directory to " + me->fe->pwd() + "\r\n";
                 else
                     reply = "400 Unknown directory " + request.arg() + "\r\n";
                 break;
-                CASE("LIST"): {
-                std::string data = "LIST\r\n";
-                if (write(client_info.pipe[1], data.c_str(), data.size()) == -1) {
+            CASE("LIST"): {
+                if (write(me->pipe[1], "LIST\r\n", 7) == -1) {
                     print_error("E: write to pipe");
                     reply = "500 Error on the server\r\n";
-                } else reply = "125 Transfer starting\r\n";
-            }
+                } else reply.clear();
+                }
                 break;
-                CASE("RETR"):
-                if (client_info.dt_info != nullptr) {
-                    std::string command = "SEND " + request.arg() + "\r\n";
-                    if (write(client_info.pipe[1], command.c_str(), command.size()) == -1) {
+            CASE("RETR"):
+                if (!me->dt_info || me->dt_info->works()) {
+                    if (me->send_command("SEND " + request.arg() + "\r\n")) {
+                        reply = "125 In progress\r\n";
+                    } else {
+                        print_error("E: write to pipe failed\r\n");
+                        reply = "500 Error on the server\r\n";
+                    }
+                } else
+                    reply = "451 Requested action aborted: First send PORT or PASV command\r\n";
+                break;
+            CASE("STOR"):
+                if (!me->dt_info || me->dt_info->works()) {
+                    if (me->send_command("RECV " + request.arg() + "\r\n")) {
                         reply = "125 In progress\r\n";
                     } else
                         reply = "500 Error on the server\r\n";
                 } else
                     reply = "451 Requested action aborted: First send PORT or PASV command\r\n";
                 break;
-                CASE("STOR"):
-                if (client_info.dt_info != nullptr) {
-                    std::string command = "RECV " + request.arg() + "\r\n";
-                    if (write(client_info.pipe[1], command.c_str(), command.size()) != -1) {
-                        reply = "125 In progress\r\n";
-                    } else
-                        reply = "500 Error on the server\r\n";
+            CASE("ABOR"):
+                if (!me->dt_info || !me->dt_info->works()) {
+                    if (me->dt->cancel()) {
+                        reply = "220 data transfer aborted\r\n";
+                    }else {
+                        print_error("error file abort data transfering");
+                        reply = "500 Aborting error\r\n";
+                        break;
+                    }
                 } else
-                    reply = "451 Requested action aborted: First send PORT or PASV command\r\n";
+                    reply = "451 Requested action aborted: Nothing to abort\r\n";
                 break;
             default:reply = "502 Command not implemented .\r\n";
                 break;
         }
 
-        printf("< %s", reply.c_str());
-        if (client->send(reply, 0) == 0) {
-            print_error("E: send failed");
-            quit = true;
+        if (!reply.empty()) {
+            // PASV, PORT and LIST command
+            printf("< %s", reply.c_str());
+            if (me->cmdSocket->send(reply, 0) == 0) {
+                if (errno == ECONNRESET)
+                    printf("Client reset connection\r\n");
+                else {
+                    print_error("E: send failed");
+                }
+                quit = true;
+            }
         }
-
     }
 
     printf("Close socket\n");
-    client->shutdown();
-    client->close();
+    me->cmdSocket->shutdown();
+    me->cmdSocket->close();
     me->active = false;
 }
 
 
 void FTPServer::connection_handler(TcpSocket *sock) {
     printf("Connection accepted\n");
-    Client *client = new Client;
-    client->cmdSocket = sock;
-    auto ptr = new Thread<void, Client*, TcpSocket*, std::string>{cmdThread, client, sock, ip};
+    Client *client = new Client(sock);
+    auto ptr = new Thread<void, Client*, std::string>{cmdThread, client, ip};
     client->cmd = ptr;
     clients.push_back(client);
 }
@@ -291,5 +313,5 @@ void FTPServer::get_my_ip() {
     ip = inet_ntop(AF_INET, &name.sin_addr, buf, sizeof(buf));
     printf("IPv4 %s ", ip.c_str());
     close(sock);
-    ip = "25.9.120.152";
+//    ip = "25.9.120.152";
 }
