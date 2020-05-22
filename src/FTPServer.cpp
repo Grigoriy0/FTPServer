@@ -18,7 +18,7 @@ FTPServer::FTPServer(cstring root, uint16_t port, int max_conn) :
 port(port), root_dir(root), max_connections(max_conn) {
     listening = new TcpSocket();
     if(!listening->bind(port)) {
-        printf("E: cannot bind port to listening socket\nExit\n");
+        print_error("E: cannot bind port to listening socket\nExit\n");
         listening->close();
         exit(2);
     }
@@ -107,7 +107,7 @@ MySqlClient::DBUser auth(TcpSocket *client) {
     return user;
 }
 
-void cmdThread(Client *me, std::string ip) {
+void cmdThread(Client *me, std::string ip, std::string root) {
     printf("thread started\n");
     std::string reply;
     Request request;
@@ -119,20 +119,19 @@ void cmdThread(Client *me, std::string ip) {
 
     MySqlClient::DBUser user;
     user = auth(me->cmdSocket);
-    me->fe = new FileExplorer(user.homedir);
+    me->fe = new FileExplorer(root + user.homedir);
 
     bool quit = false;
 
     std::string pwd = user.homedir;
     while(!quit) {
-        std::cout << "> " << std::flush;
         tmp = me->cmdSocket->recv();
         if (tmp.empty()) {
             printf("W: empty request. Exit\n");
-            break;
+            break; //
         }
         request = tmp;
-        printf("%s", tmp.c_str());
+        printf("> %s", tmp.c_str());
         SWITCH(request.command().c_str()) {
             CASE("TYPE"):me->_type = request.arg() == "A" ? Client::ASCII : Client::BIN;
                 reply = std::string("200 Type ") + (request.arg() == "A" ? "ASCII" : "BINARY") + "\r\n";
@@ -150,19 +149,19 @@ void cmdThread(Client *me, std::string ip) {
                 break;
             CASE("PWD"):reply = "257 \"" + me->fe->pwd() + "\" is the current directory\r\n";
                 break;
-            CASE("MKD"): {
+            CASE("CDUP"):reply = "200 Changed directory to " + me->fe->cd_up() + "\r\n";
+                break;
+            CASE("MKD"):
                 if (me->fe->mkdir(request.arg()))
                     reply = "230 Created dir " + request.arg() + "\r\n";
                 else
                     reply = "530 Error creating dir\r\n";
-                }
                 break;
-            CASE("RMD"): {
+            CASE("RMD"):
                 if (me->fe->rmdir(request.arg()))
                     reply = "250 Directory removed\r\n";
                 else
                     reply = "530 Error creating folder\r\n";
-                }
                 break;
             CASE("SIZE"): {
                 uint64_t size = me->fe->size(request.arg());
@@ -178,37 +177,11 @@ void cmdThread(Client *me, std::string ip) {
                 else
                     reply = "530 Error deleting file\r\n";
                 break;
-            CASE("PASV"): {
-                int *p = new int[2];
-                if (pipe(p) == -1) {
-                    print_error("E: pipe failed");
-                    reply = "550 Error on the server\r\n";
-                    break;
-                }
-                reply.clear();
-                me->dt_info = new DataThread(me->cmdSocket, user.homedir, p);
-                memcpy(me->pipe, p, 2 * sizeof(int));
-                // start_passive thread
-                me->dt =
-                    new Thread<void, DataThread *, std::string, bool>{DataThread::run, me->dt_info, ip, false};
-                }
+            CASE("PASV"):
+                reply = me->init_passive_thread(ip);
                 break;
-            CASE("PORT"): {
-                int *p = new int[2];
-                if (pipe(p) == -1) {
-                    print_error("E: pipe failed");
-                    reply = "550 Error on the server\r\n";
-                    break;
-                }
-                reply.clear();
-                me->dt_info = new DataThread(me->cmdSocket, user.homedir, p);
-                memcpy(me->pipe, p, 2 * sizeof(int));
-                // start_active thread
-                me->dt =
-                    new Thread<void, DataThread *, std::string, bool>{DataThread::run, me->dt_info, ip, true};
-                }
-                break;
-            CASE("CDUP"):reply = "200 Changed directory to " + me->fe->cd_up() + "\r\n";
+            CASE("PORT"):
+                reply = me->init_active_thread(request.arg());
                 break;
             CASE("CWD"):
                 if (request.arg().substr(0, 2) == "..") {
@@ -220,11 +193,12 @@ void cmdThread(Client *me, std::string ip) {
                 else
                     reply = "400 Unknown directory " + request.arg() + "\r\n";
                 break;
-            CASE("LIST"): {
-                if (write(me->pipe[1], "LIST\r\n", 7) == -1) {
-                    print_error("E: write to pipe");
+            CASE("LIST"):
+                if (write(me->_pipe[1], "LIST\r\n", 7) != -1)
+                    reply = "125 Transfer starting\r\n";
+                else {
+                    print_error("E: write to _pipe");
                     reply = "500 Error on the server\r\n";
-                } else reply.clear();
                 }
                 break;
             CASE("RETR"):
@@ -232,7 +206,7 @@ void cmdThread(Client *me, std::string ip) {
                     if (me->send_command("SEND " + request.arg() + "\r\n")) {
                         reply = "125 In progress\r\n";
                     } else {
-                        print_error("E: write to pipe failed\r\n");
+                        print_error("E: write to _pipe failed\r\n");
                         reply = "500 Error on the server\r\n";
                     }
                 } else
@@ -264,7 +238,7 @@ void cmdThread(Client *me, std::string ip) {
         }
 
         if (!reply.empty()) {
-            // PASV, PORT and LIST command
+            // PASV and PORT command
             printf("< %s", reply.c_str());
             if (me->cmdSocket->send(reply, 0) == 0) {
                 if (errno == ECONNRESET)
@@ -287,7 +261,7 @@ void cmdThread(Client *me, std::string ip) {
 void FTPServer::connection_handler(TcpSocket *sock) {
     printf("Connection accepted\n");
     Client *client = new Client(sock);
-    auto ptr = new Thread<void, Client*, std::string>{cmdThread, client, ip};
+    auto ptr = new Thread<void, Client*, std::string, std::string>{cmdThread, client, ip, root_dir};
     client->cmd = ptr;
     clients.push_back(client);
 }

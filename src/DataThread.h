@@ -9,16 +9,16 @@ class TcpSocket;
 
 class DataThread {
 public:
-    explicit DataThread(TcpSocket *cmdSocket, cstring root_dir, int *pipe);
+    explicit DataThread(TcpSocket *cmdSocket, FileExplorer *fe, int *pipe);
 
     static void run(DataThread *datathread, std::string data, bool activeMode);
 
     bool works(){ return active;}
 
 private:
-    void start_passive(std::string ip);
+    bool start_passive(std::string ip);
 
-    void start_active(std::string address);
+    bool start_active(std::string address);
 
     void wait_commands();
 

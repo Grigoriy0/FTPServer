@@ -17,10 +17,15 @@
 #define PRINT_ERROR
 
 
+#define RED_COLOR
+#define DEF_COLOR fprintf(stderr,"\033[0m")
 
-#define print_error(msg) perror((std::string(msg)).c_str())
+#define print_error(msg) {RED_COLOR;\
+    perror((std::string(msg)).c_str());\
+    DEF_COLOR;}
 
 #endif // PRINT_ERROR
+
 
 
 #ifndef cstring

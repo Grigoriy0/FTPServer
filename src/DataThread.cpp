@@ -33,23 +33,27 @@ inline uint16_t bind_free_port(TcpSocket *sk, uint16_t from_range = 1024, uint16
 void DataThread::run(DataThread *datathread, std::string data, bool activeMode) { // it's will executed in new thread
     printf("DataThread running in %s mode\n", activeMode?"active":"passive");
     datathread->active = true;
+    bool yes;
     if (activeMode)
-        datathread->start_active(data);
+        yes = datathread->start_active(data);
     else
-        datathread->start_passive(data);
-    printf("Wait for commands from cmd thread using pipe\n");
+        yes = datathread->start_passive(data);
+    if (!yes) {
+        datathread->active = false;
+        return;
+    }
     datathread->wait_commands();
     datathread->active = false;
 }
 
-DataThread::DataThread(TcpSocket *cmdSocket, cstring root_dir, int *pipe) {
+DataThread::DataThread(TcpSocket *cmdSocket, FileExplorer* fe, int *pipe) {
     this->cmdSocket = cmdSocket;
     this->pipe = pipe;
-    this->fe = new FileExplorer(root_dir);
+    this->fe = fe;
     this->active = false;
 }
 
-void DataThread::start_passive(std::string ip) {
+bool DataThread::start_passive(std::string ip) {
     std::replace(ip.begin(), ip.end(), '.', ',');
     // init passive connection
     std::string reply;
@@ -61,7 +65,7 @@ void DataThread::start_passive(std::string ip) {
         reply = "500 Error on the server\r\n";
         printf("< %s", reply.c_str());
         cmdSocket->send(reply);
-        return;
+        return false;
     }
     printf("waiting for client connection to data port\n");
     reply = std::string("227 Entering Passive Mode (")
@@ -71,28 +75,32 @@ void DataThread::start_passive(std::string ip) {
     printf("< %s", reply.c_str());
     cmdSocket->send(reply);
     dataSocket = new TcpSocket(listening->accept());
-
+    return true;
 }
 
 
-void DataThread::start_active(std::string address) { //129.168.0.1
-    address = address.substr(1, address.size() - 2);
+bool DataThread::start_active(std::string address) { //129,168,0,106,port1,port2
     int ip1, ip2, ip3, ip4, port1, port2;
-    sscanf(address.c_str(), "%d,%d,%d,%d,%d,%d", &ip1, &ip2, &ip3, &ip4, &port1, &port2);
+    std::replace(address.begin(), address.end(), ',', ' ');
+    sscanf(address.c_str(), "%d%d%d%d%d%d", &ip1, &ip2, &ip3, &ip4, &port1, &port2);
+
     uint16_t port = port1 * 256 + port2;
     address = std::to_string(ip1) + "." + std::to_string(ip2) + "." + std::to_string(ip3) + "." + std::to_string(ip4);
-    TcpSocket *dtSock = new TcpSocket();
-    if (!dtSock->connect(address, port)) {
+
+    dataSocket = new TcpSocket();
+    printf("Connecting to %s:%uh\n", address.c_str(), port);
+    if (!dataSocket->connect(address, port)) {
         print_error(std::string("E: dtSock.connect(") + address + ":" + std::to_string(port) + ")\r\n");
         std::string reply = "500 Error connection to your host\r\n";
         printf("< %s", reply.c_str());
         cmdSocket->send(reply);
-        return;
+        return false;
     }
     std::string reply = "200 Command OK\r\n";
     printf("< %s", reply.c_str());
     cmdSocket->send(reply);
     wait_commands();
+    return true;
 }
 
 
@@ -100,8 +108,8 @@ void DataThread::wait_commands() {
     const int buffer_size = 300;
     char buffer[buffer_size];
     if (read(pipe[0], buffer, buffer_size) == -1) {
-        print_error("E: DataThread read from pipe failed");
-        std::string reply = "500 Error on the server while reading from pipe\r\n";
+        print_error("E: DataThread read from _pipe failed");
+        std::string reply = "500 Error on the server while reading from _pipe\r\n";
         printf("< %s", reply.c_str());
         cmdSocket->send(reply);
         return;
@@ -158,7 +166,6 @@ void DataThread::send(const std::string &file_from) {
             offset += BUF_SIZE;
         }
     } while(writed == BUF_SIZE);
-    printf("Done\n");
     close(fd);
     printf("< %s", reply.c_str());
     cmdSocket->send(reply);
@@ -166,10 +173,6 @@ void DataThread::send(const std::string &file_from) {
 
 
 void DataThread::list(const std::string &dir) {
-    std::string reply = "125 Transfer starting\r\n";
-    printf("< %s", reply.c_str());
-    cmdSocket->send(reply);
-
     std::vector<std::string> file_list = fe->ls(dir);
 
     std::string result;
@@ -180,8 +183,8 @@ void DataThread::list(const std::string &dir) {
 }
 
 void DataThread::recv(const std::string &to_file) {
-    char buffer1[BUF_SIZE];
-    char buffer2[BUF_SIZE];
+    char buffer1[BUF_SIZE + 1];
+    char buffer2[BUF_SIZE + 1];
 
     AioTask::init_handlers();
     printf("opening file %s\n", (to_file).c_str());
@@ -249,10 +252,6 @@ void DataThread::recv(const std::string &to_file) {
             if (readed == -1) {
                 print_error("E: socket.recv(buffer1) failed");
                 reply = "500 Error on the server while io operations\r\n";
-                break;
-            }
-            if (readed == 0) {
-                reply = "226 Data transfered\r\n";
                 break;
             }
         }

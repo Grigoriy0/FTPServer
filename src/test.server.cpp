@@ -23,7 +23,8 @@ int main(int argc, char *argv[]) {
     }
     else port = 21;
 
-    std::string dir = "/run/";
+    std::string dir = "/ftpd/";
+
 
     FTPServer server(dir, port, max_conn);
 

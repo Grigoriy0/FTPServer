@@ -5,7 +5,6 @@
 #include <string>
 #include <vector>
 #include <utility>
-#define download_n_upload_files public
 
 class FileExplorer {
 public:
@@ -55,11 +54,6 @@ public:
     /* CWD
     * */
 
- download_n_upload_files:
-
-    void write(const std::string &file, char *data, size_t size);
-
-    char *read(const std::string &file, size_t size, int offset);
 
 private:
     std::string root;

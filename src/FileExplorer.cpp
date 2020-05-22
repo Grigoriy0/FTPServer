@@ -3,7 +3,6 @@
 #include <sys/stat.h>
 #include <dirent.h>
 #include <string.h>
-#include <fstream>
 #include <libgen.h>
 
 std::vector<std::string> FileExplorer::ls(const std::string &selected_dir) {
@@ -30,7 +29,7 @@ std::vector<std::string> FileExplorer::ls(const std::string &selected_dir) {
 
 bool FileExplorer::rm(const std::string &filename) {
     if (::remove((root + dir + filename).c_str()) == -1) {
-        printf("Error removing file %s\n", filename.c_str());
+        print_error("E: removing file %s" + filename);
         return false;
     }
     return true;
@@ -58,7 +57,7 @@ bool FileExplorer::rmdir(std::string path_namedir) { // with all nested files
                 if (path_namedir[path_namedir.size() - 1] != '/')
                     filepath += '/';
                 if (::remove((root + filepath + nested_file).c_str())) {
-                    printf("E: removing filepath %s\n", (filepath + nested_file).c_str());
+                    print_error("E: removing filepath " + filepath + nested_file);
                     return false;
                 }
             }
@@ -66,7 +65,7 @@ bool FileExplorer::rmdir(std::string path_namedir) { // with all nested files
     }
     printf("delete %s\n", (root+ dir+path_namedir).c_str());
     if (::remove((root + dir + path_namedir).c_str())) { // empty directory
-        printf("E: removing directory %s\n", (dir + path_namedir).c_str());
+        print_error("E: removing directory " + dir + path_namedir);
         return false;
     }
     return true;
@@ -100,7 +99,7 @@ bool FileExplorer::mkdir(std::string path_namedir) {
     printf("creating %s\n", folder.c_str());
     if (::mkdir(folder.c_str(), S_IRWXU | S_IRWXG | S_IRGRP))
     {
-        printf("E: Error mkdir %s %d\n", folder.c_str(), errno);
+        print_error("E: Error mkdir" + folder);
         return false;
     }
     return true;
@@ -109,37 +108,10 @@ bool FileExplorer::mkdir(std::string path_namedir) {
 bool FileExplorer::move(const std::string &what_path, std::string &path_to) {
     if(::rename((root + what_path).c_str(), (root + path_to).c_str()))
     {
-        printf("Error renaming file %s to %s\n", what_path.c_str(), path_to.c_str());
+        print_error("Error renaming file %s to " + what_path + path_to);
         return false;
     }
     return true;
-}
-
-void FileExplorer::write(const std::string &file, char *data, size_t size) {
-    std::ofstream out;
-    out.open(root + dir + file, std::ios::binary | std::ios::app);
-    if (!out.good())
-        out.open(file);
-    out.write(data, size);
-    out.close();
-}
-
-
-char *FileExplorer::read(const std::string &file, size_t size, int offset) {
-    std::ifstream in;
-    in.open(root + dir + file, std::ios_base::binary);
-    if(!in.good())
-    {
-        std::ofstream of(file); // create new
-        of.close();
-        printf("File %s doesn't exist!\n", file.c_str());
-        return nullptr;
-    }
-    in.seekg(offset);
-    char *result = (char *)malloc(size);
-    in.read(result, size);
-    in.close();
-    return result;
 }
 
 
