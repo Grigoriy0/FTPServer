@@ -9,8 +9,8 @@ std::vector<std::string> FileExplorer::ls(const std::string &selected_dir) {
     std::vector<std::string> result = {};
     DIR* dirStream;
     struct dirent *dp;
-    printf("open dir %s\n", (root + dir + selected_dir).c_str());
     system(std::string("ls -1 " + root + dir + selected_dir).c_str());
+
     dirStream = opendir((root + dir + selected_dir).c_str());
     result.emplace_back("---\n");
     while ((dp = readdir(dirStream)) != nullptr) {
@@ -36,36 +36,37 @@ bool FileExplorer::rm(const std::string &filename) {
 }
 
 
-bool FileExplorer::rmdir(std::string path_namedir) { // with all nested files
-    auto nested_files = ls(path_namedir);
+bool FileExplorer::rmdir(std::string path_name) { // with all nested files
+    auto nested_files = ls(path_name);
+    nested_files.erase(nested_files.begin());
+    nested_files.erase(nested_files.begin() + nested_files.size());
     if (!nested_files.empty()) // has no nested files or directories
     {
-        printf("recurse");
         for (const auto & nested_file : nested_files) {
-            printf("rmdir %s\n", nested_file.c_str());
             if (nested_file[nested_file.size() - 1] == '/') { // directory
                 // it's a directory
-                if (path_namedir[path_namedir.size() - 1] != '/')
-                    path_namedir += '/';
-                printf("rmdir %s\n", (root + dir + path_namedir + nested_file).c_str());
-                rmdir(root + dir + path_namedir + nested_file);
+                if (path_name[path_name.size() - 1] != '/')
+                    path_name += '/';
+                path_name += nested_file;
+                printf("rmdir %s\n", (root + dir + path_name).c_str());
+                rmdir(path_name + nested_file);
             }
             else {
                 // it's a simple file
-
-                std::string filepath = path_namedir;
-                if (path_namedir[path_namedir.size() - 1] != '/')
-                    filepath += '/';
-                if (::remove((root + filepath + nested_file).c_str())) {
-                    print_error("E: removing filepath " + filepath + nested_file);
+                if (path_name[path_name.size() - 1] != '/')
+                    path_name += '/';
+                path_name += nested_file;
+                printf("delete %s\n", (root + dir + path_name).c_str());
+                if (::remove((root + dir + path_name).c_str())) {
+                    print_error("E: removing filepath " + path_name);
                     return false;
                 }
             }
         }
-    }
-    printf("delete %s\n", (root+ dir+path_namedir).c_str());
-    if (::remove((root + dir + path_namedir).c_str())) { // empty directory
-        print_error("E: removing directory " + dir + path_namedir);
+    } // empty directory
+    printf("delete %s\n", (root+ dir + path_name).c_str());
+    if (::remove((root + dir + path_name).c_str())) {
+        print_error("E: removing directory " + dir + path_name);
         return false;
     }
     return true;
@@ -74,7 +75,9 @@ bool FileExplorer::rmdir(std::string path_namedir) { // with all nested files
 
 uint64_t FileExplorer::size(const std::string &filename) {
     struct stat file_stat{};
-    stat((root + filename).c_str(), &file_stat);
+    if (stat((root + dir + filename).c_str(), &file_stat) == -1) {
+        print_error("stat failed")
+    }
     return file_stat.st_size;
 }
 
@@ -134,7 +137,6 @@ std::string FileExplorer::cd_up() {
     dir = dirname(buffer);
     if (dir[dir.size() - 1] != '/')
         dir += '/';
-
     return dir;
 }
 

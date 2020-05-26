@@ -32,7 +32,7 @@ public:
     /* MKD
     * */
 
-    bool rmdir(std::string path_namedir);
+    bool rmdir(std::string path_name);
     /* RMD
     * */
 

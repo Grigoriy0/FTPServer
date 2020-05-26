@@ -17,7 +17,7 @@
 #define PRINT_ERROR
 
 
-#define RED_COLOR
+#define RED_COLOR fprintf(stderr,"\033[0;31m")
 #define DEF_COLOR fprintf(stderr,"\033[0m")
 
 #define print_error(msg) {RED_COLOR;\

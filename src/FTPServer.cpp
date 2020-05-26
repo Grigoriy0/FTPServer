@@ -161,7 +161,7 @@ void cmdThread(Client *me, std::string ip, std::string root) {
                 if (me->fe->rmdir(request.arg()))
                     reply = "250 Directory removed\r\n";
                 else
-                    reply = "530 Error creating folder\r\n";
+                    reply = "530 Error removing folder\r\n";
                 break;
             CASE("SIZE"): {
                 uint64_t size = me->fe->size(request.arg());
@@ -173,7 +173,7 @@ void cmdThread(Client *me, std::string ip, std::string root) {
                 break;
             CASE("DELE"):
                 if (me->fe->rm(request.arg()))
-                    reply = "250 File " + request.arg() + "deleted\r\n";
+                    reply = "250 File " + request.arg() + " deleted\r\n";
                 else
                     reply = "530 Error deleting file\r\n";
                 break;

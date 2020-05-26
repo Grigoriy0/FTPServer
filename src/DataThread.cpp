@@ -88,7 +88,7 @@ bool DataThread::start_active(std::string address) { //129,168,0,106,port1,port2
     address = std::to_string(ip1) + "." + std::to_string(ip2) + "." + std::to_string(ip3) + "." + std::to_string(ip4);
 
     dataSocket = new TcpSocket();
-    printf("Connecting to %s:%uh\n", address.c_str(), port);
+    printf("Connecting to %s:%hu\n", address.c_str(), port);
     if (!dataSocket->connect(address, port)) {
         print_error(std::string("E: dtSock.connect(") + address + ":" + std::to_string(port) + ")\r\n");
         std::string reply = "500 Error connection to your host\r\n";
