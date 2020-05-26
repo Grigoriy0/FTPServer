@@ -2,7 +2,6 @@
 
 #include "DataThread.h"
 #include "TcpSocket.h"
-#include "AioTask.h"
 #include "defines.h"
 #include "Request.h"
 #include <unistd.h>
