@@ -1,1 +1,4 @@
 .terraform
+terrafom.tfvars
+.idea
+cmake-build-debug
