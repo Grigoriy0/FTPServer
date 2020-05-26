@@ -14,7 +14,7 @@
 #include "Client.h"
 
 
-FTPServer::FTPServer(cstring root, uint16_t port, int max_conn) :
+FTPServer::FTPServer(cstring root, uint16_t port, cstring ip, int max_conn) :
 port(port), root_dir(root), max_connections(max_conn) {
     listening = new TcpSocket();
     if(!listening->bind(port)) {
@@ -24,7 +24,10 @@ port(port), root_dir(root), max_connections(max_conn) {
     }
     listening->listen(max_connections);
     connections = 0;
-    get_my_ip();
+    if (ip.empty())
+        get_my_ip();
+    else
+        printf("IPv4 %s ", ip.c_str());
     printf("and the port %d\n", port);
     clients = std::vector<Client*>{};
     do {
@@ -138,7 +141,7 @@ void cmdThread(Client *me, std::string ip, std::string root) {
                 break;
             CASE("NOOP"):reply = "200 Command OK\r\n";
                 break;
-            CASE("SYST"):reply = "215 UNIX Type: L8. Remote system TransferType is UNIX.\r\n";
+            CASE("SYST"):reply = "215 UNIX Type: L8. Remote system transfer type is UNIX.\r\n";
                 break;
             CASE("STAT"):reply = std::string("211 Logged in ") + user.uname + "\n" + "211 End of status\r\n";
                 break;
@@ -287,5 +290,4 @@ void FTPServer::get_my_ip() {
     ip = inet_ntop(AF_INET, &name.sin_addr, buf, sizeof(buf));
     printf("IPv4 %s ", ip.c_str());
     close(sock);
-//    ip = "25.9.120.152";
 }

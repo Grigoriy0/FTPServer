@@ -12,7 +12,7 @@ struct Client;
 
 class FTPServer {
 public:
-    explicit FTPServer(cstring root_dir, uint16_t port = 21, int max_connections = 1000);
+    explicit FTPServer(cstring root_dir, uint16_t port = 21, cstring ip = "", int max_connections = 1000);
 
 private:
     void get_my_ip();
