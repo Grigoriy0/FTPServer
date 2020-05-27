@@ -1,7 +1,3 @@
-//
-// Created by grigoriy on 23.02.20.
-//
-
 #ifndef MY_SQL_CLIENT_H
 #define MY_SQL_CLIENT_H
 #include <string>
@@ -15,10 +11,7 @@ public:
     bool connect(cstring user, cstring passw);
 
     struct DBUser{
-        struct permissions {
-            uint32_t id;
-            bool isroot;
-        } perm;
+        uint32_t id;
         std::string homedir;
         std::string uname;
     };

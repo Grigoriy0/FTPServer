@@ -26,8 +26,10 @@ port(port), root_dir(root), max_connections(max_conn) {
     connections = 0;
     if (ip.empty())
         get_my_ip();
-    else
+    else {
+        this->ip = ip;
         printf("IPv4 %s ", ip.c_str());
+    }
     printf("and the port %d\n", port);
     clients = std::vector<Client*>{};
     do {
@@ -65,8 +67,8 @@ MySqlClient::DBUser auth(TcpSocket *client) {
     MySqlClient::DBUser user;
     user.uname = request.arg();
 
-    MySqlClient mysql("FTPServer");
-    if (!mysql.connect("root", "2349914")) {
+    MySqlClient mysql(getenv("FTP_DB_NAME"));
+    if (!mysql.connect(getenv("FTP_DB_USER"), getenv("FTP_DB_PASS"))) {
         print_error(mysql.last_error().c_str());
         reply = "530 Sorry, error on the database server\r\n";
         printf("< %s", reply.c_str());
@@ -87,9 +89,9 @@ MySqlClient::DBUser auth(TcpSocket *client) {
     if (user.uname != "anonymous") {
         request = tmp = client->recv();
         printf("> %s\n", tmp.c_str());
-        user.perm.id = mysql.auth(user.uname, request.arg());
+        user.id = mysql.auth(user.uname, request.arg());
 
-        if (user.perm.id > 0) {
+        if (user.id > 0) {
             reply = "230 Log in as user " + user.uname + "\r\n";
             printf("< %s", reply.c_str());
             client->send(reply, 0);
@@ -105,7 +107,7 @@ MySqlClient::DBUser auth(TcpSocket *client) {
             return {};
         }
     }
-    user = mysql.getUserInfo(user.perm.id);
+    user = mysql.getUserInfo(user.id);
     mysql.disconnect();
     return user;
 }

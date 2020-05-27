@@ -1,7 +1,3 @@
-//
-// Created by grigoriy on 23.02.20.
-//
-
 #include "MySqlClient.h"
 #include <utility>
 #include <cstring>
@@ -52,10 +48,9 @@ MySqlClient::DBUser MySqlClient::getUserInfo(uint32_t id) {
         error = conn.error();
         return {};
     }
-    userInfo.perm.id = std::stoi(reply[0][0].c_str());
+    userInfo.id = std::stoi(reply[0][0].c_str());
     userInfo.homedir = reply[0][3].c_str();
     userInfo.uname = reply[0][1].c_str();
-    userInfo.perm.isroot = reply[0][4][0] == '1';
     return userInfo;
 }
 
