@@ -1,0 +1,63 @@
+---
+
+- hosts: FTP_SERVERS
+  remote_user: ubuntu
+  become: true
+  tasks:
+    - name: Install compile requirements
+      apt:
+        name:
+        - make
+        - g++
+        - libmysql++-dev
+        - libmysqlclient-dev
+        update_cache: true
+        state: latest
+
+    - name: Set env variables
+      copy:
+        src: "env"
+        dest: "home/ubuntu/.bashrc"
+
+- hosts: DATABASE_SERVERS
+  remote_user: ubuntu
+  become: true
+  tasks:
+    - name: Install mysql-server
+      apt:
+        name:
+        - mysql-server
+        - mysql-client
+        - python-pymysql
+        - python3-pymysql
+        update_cache: true
+        state: latest
+
+    - name: Ensure that mysql is started
+      systemd:
+        name: mysql
+        state: started
+
+    - name: Add mysql user
+      mysql_user:
+        login_user: root
+        login_password: 12345
+        name: ftp
+        password: 12345
+        encrypted: no
+        priv: '*.*:ALL'
+        state: present
+        update_password: always
+
+    - name: Copy mysql database
+      copy:
+        src: ftp_users_dump.sql
+        dest: /tmp
+
+    - name: Restore database
+      mysql_db:
+        login_user: ftp
+        login_password: 12345
+        name: FTPServer
+        state: import
+        target: /tmp/ftp_users_dump.sql
