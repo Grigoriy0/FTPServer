@@ -12,6 +12,8 @@ struct Client {
 
     bool send_command(cstring command);
 
+    bool send_reply(cstring reply);
+
     ~Client();
 
     std::string init_active_thread(cstring arg);
@@ -27,6 +29,7 @@ struct Client {
     Thread<void, Client*, std::string, std::string> *cmd;
     TcpSocket *cmdSocket;
     int _pipe[2];
+    std::string name;
 
     sig_atomic_t active;
 };
