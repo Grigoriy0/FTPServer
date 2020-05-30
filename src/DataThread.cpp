@@ -14,7 +14,7 @@
 
 
 
-inline uint16_t bind_free_port(TcpSocket *sk, uint16_t from_range = 1024, uint16_t to_range = 3000) {
+inline uint16_t bind_free_port(TcpSocket *sk, uint16_t from_range = 2000, uint16_t to_range = 3000) {
     uint16_t port;
     std::default_random_engine generator;
     std::uniform_int_distribution<int> distribution(from_range, to_range);
@@ -137,9 +137,9 @@ void DataThread::send(const std::string &file_from) {
         return;
     }
     off_t offset = 0;
-    struct stat buf;
-    fstat(fd, &buf);
-    ssize_t size = buf.st_size;
+    struct stat file_stat;
+    fstat(fd, &file_stat);
+    ssize_t size = file_stat.st_size;
     int sent = ::sendfile(dataSocket->getFD(), fd, &offset, size);
     printf("sent = %d Bytes\n", sent);
     close(fd);
@@ -155,7 +155,9 @@ void DataThread::list(const std::string &dir) {
     for (auto &file: file_list)
         result += file + '\n';
     dataSocket->send(result);
-    cmdSocket->send("226 Requested file action okay, completed.\r\n");
+    const std::string reply = "226 Requested list files action completed\r\n";
+    printf("< %s", reply.c_str());
+    cmdSocket->send(reply);
 }
 
 void DataThread::recv(const std::string &to_file) {
@@ -174,8 +176,13 @@ void DataThread::recv(const std::string &to_file) {
     do {
         readed = dataSocket->recv_to_buffer(buffer);
         if (readed == -1) {
-            print_error("E: socket.recv(buffer1) failed");
-            reply = "500 Error on the server while io operations\r\n";
+            if (errno == EPIPE) {
+                reply = "226 Data transferred\r\n";
+            }
+            else {
+                print_error("E: socket.recv(buffer1) failed");
+                reply = "500 Error on the server while io operations\r\n";
+            }
             break;
         }
 
@@ -186,8 +193,8 @@ void DataThread::recv(const std::string &to_file) {
             reply = "500 Error on the server while io operations\r\n";
             break;
         }
-        if (writed == 0) {
-            reply = "Data transferred\r\n";
+        if (readed == 0) {
+            reply = "226 Data transferred\r\n";
             break;
         }
 
