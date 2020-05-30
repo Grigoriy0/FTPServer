@@ -32,9 +32,16 @@
         chdir: ~/
         file: Makefile
         target: all
-    
-    # - name: ftpdd restart
-      # become: yes
-      # systemd:
-        # name: ftpdd
-        # state: restarted
+   
+
+    - name: Copy systemd config
+      become: yes
+      copy:
+        src: '{{ dir }}/ftpdd.service'
+        dest: /etc/systemd/system/ftpdd.service
+
+    - name: Restart FTP server
+      become: yes
+      systemd:
+        name: ftpdd
+        state: restarted

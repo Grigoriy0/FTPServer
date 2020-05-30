@@ -130,7 +130,6 @@ void DataThread::send(const std::string &file_from) {
     std::string reply = "226 Data transferred\r\n";
     int fd;
     if ((fd = open(file_from.c_str(), O_RDONLY, S_IRUSR | S_IWUSR | S_IRGRP)) == -1) {
-        print_error("open failed");
         reply = "500 Error file not found\r\n";
         printf("< %s", reply.c_str());
         cmdSocket->send(reply);
@@ -140,7 +139,11 @@ void DataThread::send(const std::string &file_from) {
     struct stat file_stat;
     fstat(fd, &file_stat);
     ssize_t size = file_stat.st_size;
-    int sent = ::sendfile(dataSocket->getFD(), fd, &offset, size);
+    int sent = dataSocket->send_file(fd, size, offset);
+    if (sent == -1 && (errno == ECONNRESET)) {
+        printf("Client close connection. Send interrupts\n");
+        return;
+    }
     printf("sent = %d Bytes\n", sent);
     close(fd);
     printf("< %s", reply.c_str());
@@ -149,13 +152,21 @@ void DataThread::send(const std::string &file_from) {
 
 
 void DataThread::list(const std::string &dir) {
+    std::string reply = "226 Requested list files action completed\r\n";
+    
     std::vector<std::string> file_list = fe->ls(dir);
-
+    if (!file_list.empty() && file_list[0] == "~~~") {
+        reply = "350 Unknown directory " + dir + "\r\n";
+        printf("< %s", reply.c_str());
+        cmdSocket->send(reply);
+        return;
+    }
+    
     std::string result;
     for (auto &file: file_list)
         result += file + '\n';
+    
     dataSocket->send(result);
-    const std::string reply = "226 Requested list files action completed\r\n";
     printf("< %s", reply.c_str());
     cmdSocket->send(reply);
 }
@@ -176,8 +187,8 @@ void DataThread::recv(const std::string &to_file) {
     do {
         readed = dataSocket->recv_to_buffer(buffer);
         if (readed == -1) {
-            if (errno == EPIPE) {
-                reply = "226 Data transferred\r\n";
+            if (errno == ECONNRESET) {
+                reply = "500 You closed the connection\r\n";
             }
             else {
                 print_error("E: socket.recv(buffer1) failed");

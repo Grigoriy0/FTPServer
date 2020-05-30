@@ -209,13 +209,14 @@ void cmdThread(Client *me, std::string ip, std::string root) {
                     reply = "400 Unknown directory " + request.arg() + "\r\n";
                 break;
             CASE("LIST"):
-                if (write(me->_pipe[1], "LIST\r\n", 7) != -1)
+                {std::string command = std::string("LIST ") + request.arg() + "\r\n";
+                if (write(me->_pipe[1], command.c_str(), command.size()) != -1)
                     reply = "125 Transfer starting\r\n";
                 else {
                     print_error("E: write to _pipe");
                     reply = "500 Error on the server\r\n";
                 }
-                break;
+                }break;
             CASE("RETR"):
                 if (!me->dt_info || me->dt_info->works()) {
                     if (me->send_command("SEND " + request.arg() + "\r\n")) {

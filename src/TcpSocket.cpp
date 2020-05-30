@@ -3,6 +3,7 @@
 #include <sys/socket.h>
 #include <arpa/inet.h>
 #include <netinet/tcp.h>
+#include <sys/sendfile.h>
 
 
 TcpSocket::TcpSocket() {
@@ -84,8 +85,7 @@ int TcpSocket::accept()
     int new_socket;
     do {
         new_socket = ::accept(socket_desc, (struct sockaddr *)&client, &c);
-        if (new_socket == -1 && errno != EINTR)
-        {
+        if (new_socket == -1 && errno != EINTR) {
             print_error("accept failed ");
             return 0;
         }
@@ -97,9 +97,8 @@ int TcpSocket::accept()
 ssize_t TcpSocket::send(cstring message, int flags)
 {
     ssize_t tr;
-    if((tr = ::send(socket_desc, message.c_str(), message.size(), 0)) == -1)
+    if((tr = ::send(socket_desc, message.c_str(), message.size(), flags)) == -1)
     {
-        print_error("send failed ");
         return 0;
     }
     return tr;
@@ -130,14 +129,11 @@ void TcpSocket::shutdown() {
 }
 
 int TcpSocket::recv_to_buffer(char *buffer, int size) {
-    int res;
-    if ((res = ::recv(socket_desc, buffer, size, 0)) == -1)
-    {
-        print_error("read failed ");
-    }
-    return res;
+    return ::recv(socket_desc, buffer, size, 0);
 }
 
-int TcpSocket::getFD() {
-    return socket_desc;
+
+int TcpSocket::send_file(int file_desc, ssize_t size, off_t offset) {
+    off_t offs = offset;
+    return sendfile(socket_desc, file_desc, &offs, size);
 }

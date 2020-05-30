@@ -6,17 +6,19 @@
 #include <libgen.h>
 
 std::vector<std::string> FileExplorer::ls(const std::string &selected_dir) {
-    std::vector<std::string> result = {};
+    std::vector<std::string> result{};
     DIR* dirStream;
     struct dirent *dp;
-    system(std::string("ls -1 " + root + dir + selected_dir).c_str());
 
     dirStream = opendir((root + dir + selected_dir).c_str());
+    if (dirStream == nullptr) {
+        return {"~~~"}; // error signal - unknown directory 
+    }
     while ((dp = readdir(dirStream)) != nullptr) {
         result.emplace_back(std::string(dp->d_name) + (dp->d_type == 4 ? "/" : ""));
     }
     closedir(dirStream);
-    for (int i = 0; i < result.size(); ++i){
+    for (unsigned i = 0; i < result.size(); ++i){
         if (result[i] == "../" || result[i] == "./"){
             result.erase(result.begin() + i);
             --i;
@@ -34,27 +36,27 @@ bool FileExplorer::rm(const std::string &filename) {
 }
 
 
-bool FileExplorer::rmdir(std::string path_name) { // with all nested files
+bool FileExplorer::rmdir(std::string path_name) {
     auto nested_files = ls(path_name);
-    if (nested_files.size() > 2) // has nested files or directories
+    if (!nested_files.empty() && nested_files[0] != "~~~") // has nested files or directories
     {
         for (const auto & nested_file : nested_files) {
-            if (nested_file == "./" || nested_file == "../")
-                continue;
             if (nested_file[nested_file.size() - 1] == '/') { // directory
-                // it's a directory
-                if (path_name[path_name.size() - 1] != '/')
-                    path_name += '/';
-                path_name += nested_file;
-                printf("rmdir %s\n", (root + dir + path_name).c_str());
-                rmdir(path_name + nested_file);
+                
+                cd(path_name);
+                
+                bool res = rmdir(nested_file);
+
+                cd_up();
+                if (res == false) 
+                    return false;
             }
             else {
                 // it's a simple file
                 if (path_name[path_name.size() - 1] != '/')
                     path_name += '/';
                 path_name += nested_file;
-                printf("delete %s\n", (root + dir + path_name).c_str());
+                printf("remove file %s\n", (root + dir + path_name).c_str());
                 if (::remove((root + dir + path_name).c_str())) {
                     print_error("E: removing filepath " + path_name);
                     return false;
@@ -62,7 +64,7 @@ bool FileExplorer::rmdir(std::string path_name) { // with all nested files
             }
         }
     } // empty directory
-    printf("delete %s\n", (root+ dir + path_name).c_str());
+    printf("remove dir %s\n", (root + dir + path_name).c_str());
     if (::remove((root + dir + path_name).c_str())) {
         print_error("E: removing directory " + dir + path_name);
         return false;
