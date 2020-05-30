@@ -13,7 +13,7 @@ resource "aws_instance" "ftp-server" {
   }
 
   provisioner "local-exec" {    # for ansible
-    command = "echo ${aws_instance.ftp-server.public_ip} > ip.txt && python3 script.py"
+    command = "echo ${aws_instance.ftp-server.public_ip} > ip && python3 script.py"
   }
 
   provisioner "remote-exec" {

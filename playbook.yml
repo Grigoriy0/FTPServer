@@ -23,7 +23,7 @@
   remote_user: ubuntu
   become: true
   tasks:
-    - name: Install mysql-server
+    - name: Install mysql-server and required(for ansible) packages
       apt:
         name:
         - mysql-server
@@ -47,7 +47,7 @@
         encrypted: no
         priv: '*.*:ALL'
         state: present
-        update_password: always
+        update_password: on_create
 
     - name: Copy mysql database
       copy:

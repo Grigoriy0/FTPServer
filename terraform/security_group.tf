@@ -2,7 +2,7 @@
 
 resource "aws_security_group" "ftp_ssh" {
   name        = "allow_ftp_ssh"
-  description = "Allow 21, 22, 2000-5000"
+  description = "Allow 21, 22, 2000-3000"
 
   ingress { # ftp port
     from_port   = 21

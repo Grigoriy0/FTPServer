@@ -1,0 +1,40 @@
+---
+- hosts: 127.0.0.1
+  vars:
+    dir: ~/Projects/Clion/master
+  tasks:
+    - name: Create archive of code
+      archive:
+        path: '{{ dir  }}/src/*'
+        dest: '{{ dir  }}/src.tar.gz'
+
+- hosts: FTP_SERVERS
+  remote_user: ubuntu
+  vars:
+    dir: ~/Projects/Clion/master
+  tasks:
+    - name: Create src directory
+      file:
+        path: ~/src
+        state: directory
+    - name: Unpack archive of code to remote host 
+      unarchive:
+        src: '{{ dir  }}/src.tar.gz'
+        dest: ~/src
+    
+    - name: Copy Makefile
+      copy:
+        src: '{{ dir }}/Makefile'
+        dest: ~/
+
+    - name: Compile project
+      make:
+        chdir: ~/
+        file: Makefile
+        target: all
+    
+    # - name: ftpdd restart
+      # become: yes
+      # systemd:
+        # name: ftpdd
+        # state: restarted

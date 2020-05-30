@@ -1,14 +1,18 @@
 
 if __name__ == "__main__":
     f_in = open("ip.txt")
-    ip = f_in.read()
+    ip = f_in.read().strip()
     f_in.close()
+
+    if len(ip) == 0:
+        print('file ip.txt is empty')
+        exit(1)
 
     server = ip.strip()+\
     " ansible_connection=ssh"+\
     " ansible_user=ubuntu"+\
     " ansible_ssh_private_key="+\
-    "~/.ssh/aws_key_pair.pem"
+    "~/.ssh/terraform"
 
     f_out = open("../hosts.ini", 'w')
 
