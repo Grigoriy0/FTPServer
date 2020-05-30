@@ -14,7 +14,7 @@
 
 
 
-inline uint16_t bind_free_port(TcpSocket *sk, uint16_t from_range = 2000, uint16_t to_range = 3000) {
+inline uint16_t bind_free_port(TcpSocket *sk, uint16_t from_range = 1024, uint16_t to_range = 3000) {
     uint16_t port;
     std::default_random_engine generator;
     std::uniform_int_distribution<int> distribution(from_range, to_range);
@@ -31,9 +31,11 @@ void DataThread::run(DataThread *datathread, std::string data, bool activeMode) 
         yes = datathread->start_active(data);
     else
         yes = datathread->start_passive(data);
-    if (yes) {
-        datathread->wait_commands();
+    if (!yes) {
+        datathread->active = false;
+        return;
     }
+    datathread->wait_commands();
     datathread->active = false;
 }
 
@@ -56,7 +58,6 @@ bool DataThread::start_passive(std::string ip) {
         reply = "500 Error on the server\r\n";
         printf("< %s", reply.c_str());
         cmdSocket->send(reply);
-        active = false;
         return false;
     }
     reply = std::string("227 Entering Passive Mode (")
@@ -82,15 +83,15 @@ bool DataThread::start_active(std::string address) { //129,168,0,106,port1,port2
     printf("Connecting to %s:%hu\n", address.c_str(), port);
     if (!dataSocket->connect(address, port)) {
         print_error(std::string("E: dtSock.connect(") + address + ":" + std::to_string(port) + ")\r\n");
-        std::string reply = "500 Error connection to your host. Try to use passive mode\r\n";
+        std::string reply = "500 Error connection to your host\r\n";
         printf("< %s", reply.c_str());
         cmdSocket->send(reply);
-        active = false;
         return false;
     }
     std::string reply = "200 Command OK\r\n";
     printf("< %s", reply.c_str());
     cmdSocket->send(reply);
+    wait_commands();
     return true;
 }
 
@@ -98,28 +99,31 @@ bool DataThread::start_active(std::string address) { //129,168,0,106,port1,port2
 void DataThread::wait_commands() {
     const int buffer_size = 300;
     char buffer[buffer_size];
-    while(active) {
-        if (read(pipe[0], buffer, buffer_size) == -1) {
-            print_error("E: DataThread read from _pipe failed");
-            std::string reply = "500 Error on the server while IPC operations\r\n";
-            printf("< %s", reply.c_str());
-            cmdSocket->send(reply);
-            active = false;
-            return;
-        }
-        Request req = Request(buffer);
-        SWITCH(req.command().c_str()) { // It's my commands from cmd-thread
-            CASE("LIST"):list(req.arg());
-                break;
-            CASE("SEND"):send(fe->root_dir() + fe->pwd() + req.arg());
-                break;
-            CASE("RECV"):recv(fe->root_dir() + fe->pwd() + req.arg());
-                break;
-            CASE("STOP"):return;
-            default:printf("%s\n", (std::string("unknown command ") + req.command()).c_str());
-                break;
-        }
+    if (read(pipe[0], buffer, buffer_size) == -1) {
+        print_error("E: DataThread read from _pipe failed");
+        std::string reply = "500 Error on the server while IP operations\r\n";
+        printf("< %s", reply.c_str());
+        cmdSocket->send(reply);
+        return;
     }
+    Request req = Request(buffer);
+    SWITCH(req.command().c_str()) { // It's my commands from cmd-thread
+        CASE("LIST"):
+            list(req.arg());
+        break;
+        CASE("SEND"):
+            send(fe->root_dir() + fe->pwd() + req.arg());
+        break;
+        CASE("RECV"):
+            recv(fe->root_dir() + fe->pwd() + req.arg());
+        break;
+        default:
+            printf("%s\n", (std::string("unknown command ") + req.command()).c_str());
+            break;
+    }
+    dataSocket->shutdown();
+    dataSocket->close();
+    active = false;
 }
 
 void DataThread::send(const std::string &file_from) {
@@ -183,7 +187,7 @@ void DataThread::recv(const std::string &to_file) {
             break;
         }
         if (writed == 0) {
-            reply = "226 Data transferred\r\n";
+            reply = "Data transferred\r\n";
             break;
         }
 

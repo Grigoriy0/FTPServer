@@ -47,9 +47,3 @@ std::string Client::init_passive_thread(cstring arg) {
     dt = new Thread<void, DataThread *, std::string, bool>{DataThread::run, dt_info, arg, false};
     return "";
 }
-
-
-bool Client::send_reply(const std::string &reply) {
-    printf("%s< %s", name.c_str(), reply.c_str());
-    cmdSocket->send(reply);
-}

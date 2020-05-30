@@ -59,8 +59,9 @@ bool TcpSocket::bind(uint16_t port)
     server.sin_port = htons(port);
     server.sin_family = AF_INET;
 
-    if(::bind(socket_desc, (sockaddr*)&server, sizeof(sockaddr_in)) == -1)
+    if(::bind(socket_desc, (sockaddr*)&server, sizeof(sockaddr_in)) < 0)
     {
+        print_error("bind failed ");
         return false;
     }
     return true;

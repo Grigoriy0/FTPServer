@@ -57,14 +57,9 @@ MySqlClient::DBUser auth(TcpSocket *client) {
     while(request.command() != "USER") {
         reply = "130 Sign in first\r\n";
         printf("< %s", reply.c_str());
-        client->send(reply);
+        client->send(reply, 0);
 
         request = tmp = client->recv();
-        if (tmp.empty()){
-            MySqlClient::DBUser empty{};
-            empty.id = 0;
-            return empty;
-        }
         printf("> %s\n", tmp.c_str());
     }
 
@@ -81,9 +76,7 @@ MySqlClient::DBUser auth(TcpSocket *client) {
         mysql.disconnect();
         client->shutdown();
         client->close();
-        MySqlClient::DBUser empty{};
-        empty.id = 0;
-        return empty;
+        return {};
     }
     if (user.uname != "anonymous")
         reply = "331 Password required\r\n";
@@ -105,7 +98,7 @@ MySqlClient::DBUser auth(TcpSocket *client) {
 
         }
         else {
-            reply = "530 Auth error. Bye " + user.uname + "\r\n";
+            reply = "530 Unknown user " + user.uname + "\r\n";
             printf("> %s", reply.c_str());
             client->send(reply, 0);
             mysql.disconnect();
@@ -126,12 +119,13 @@ void cmdThread(Client *me, std::string ip, std::string root) {
     std::string tmp;
 
     reply = "220 Welcome to FTP server by Grigoriy!\r\n";
-    me->send_reply(reply);
+    printf("< %s", reply.c_str());
+    me->cmdSocket->send(reply, 0);
 
     MySqlClient::DBUser user;
     user = auth(me->cmdSocket);
     me->fe = new FileExplorer(root + user.homedir);
-    me->name = user.uname;
+
     bool quit = false;
 
     std::string pwd = user.homedir;
@@ -142,7 +136,7 @@ void cmdThread(Client *me, std::string ip, std::string root) {
             break; //
         }
         request = tmp;
-        printf("%s> %s", user.uname.c_str(), tmp.c_str());
+        printf("> %s", tmp.c_str());
         SWITCH(request.command().c_str()) {
             CASE("TYPE"):me->_type = request.arg() == "A" ? Client::ASCII : Client::BIN;
                 reply = std::string("200 Type ") + (request.arg() == "A" ? "ASCII" : "BINARY") + "\r\n";
@@ -237,7 +231,7 @@ void cmdThread(Client *me, std::string ip, std::string root) {
                     if (me->dt->cancel()) {
                         reply = "220 data transfer aborted\r\n";
                     }else {
-                        print_error("error file abort data transferring");
+                        print_error("error file abort data transfering");
                         reply = "500 Aborting error\r\n";
                         break;
                     }
@@ -250,7 +244,8 @@ void cmdThread(Client *me, std::string ip, std::string root) {
 
         if (!reply.empty()) {
             // PASV and PORT command
-            if (me->send_reply(reply) == false) {
+            printf("< %s", reply.c_str());
+            if (me->cmdSocket->send(reply, 0) == 0) {
                 if (errno == ECONNRESET)
                     printf("Client reset connection\r\n");
                 else {
@@ -261,10 +256,8 @@ void cmdThread(Client *me, std::string ip, std::string root) {
         }
     }
 
-    printf("Close connection with %s\n", user.uname.c_str());
-    me->send_command("STOP\r\n"); // if thread wait command
+    printf("Close socket\n");
     me->cmdSocket->shutdown();
-    me->dt->cancel(); // if thread does not wait
     me->cmdSocket->close();
     me->active = false;
 }
