@@ -11,7 +11,7 @@ public:
     bool connect(cstring user, cstring passw);
 
     struct DBUser{
-        int id;
+        uint32_t id;
         std::string homedir;
         std::string uname;
     };

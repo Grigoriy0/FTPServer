@@ -14,7 +14,7 @@
 
 
 
-inline uint16_t bind_free_port(TcpSocket *sk, uint16_t from_range = 2000, uint16_t to_range = 3000) {
+inline uint16_t bind_free_port(TcpSocket *sk, uint16_t from_range = 1024, uint16_t to_range = 3000) {
     uint16_t port;
     std::default_random_engine generator;
     std::uniform_int_distribution<int> distribution(from_range, to_range);
@@ -136,14 +136,10 @@ void DataThread::send(const std::string &file_from) {
         return;
     }
     off_t offset = 0;
-    struct stat file_stat;
-    fstat(fd, &file_stat);
-    ssize_t size = file_stat.st_size;
-    int sent = dataSocket->send_file(fd, size, offset);
-    if (sent == -1 && (errno == ECONNRESET)) {
-        printf("Client close connection. Send interrupts\n");
-        return;
-    }
+    struct stat buf;
+    fstat(fd, &buf);
+    ssize_t size = buf.st_size;
+    int sent = ::sendfile(dataSocket->getFD(), fd, &offset, size);
     printf("sent = %d Bytes\n", sent);
     close(fd);
     printf("< %s", reply.c_str());
@@ -167,8 +163,12 @@ void DataThread::list(const std::string &dir) {
         result += file + '\n';
     
     dataSocket->send(result);
+<<<<<<< HEAD
     printf("< %s", reply.c_str());
     cmdSocket->send(reply);
+=======
+    cmdSocket->send("226 Requested file action okay, completed.\r\n");
+>>>>>>> parent of a6b416a... fix authentication
 }
 
 void DataThread::recv(const std::string &to_file) {
@@ -187,6 +187,7 @@ void DataThread::recv(const std::string &to_file) {
     do {
         readed = dataSocket->recv_to_buffer(buffer);
         if (readed == -1) {
+<<<<<<< HEAD
             if (errno == ECONNRESET) {
                 reply = "500 You closed the connection\r\n";
             }
@@ -194,6 +195,10 @@ void DataThread::recv(const std::string &to_file) {
                 print_error("E: socket.recv(buffer1) failed");
                 reply = "500 Error on the server while io operations\r\n";
             }
+=======
+            print_error("E: socket.recv(buffer1) failed");
+            reply = "500 Error on the server while io operations\r\n";
+>>>>>>> parent of a6b416a... fix authentication
             break;
         }
 
@@ -204,8 +209,8 @@ void DataThread::recv(const std::string &to_file) {
             reply = "500 Error on the server while io operations\r\n";
             break;
         }
-        if (readed == 0) {
-            reply = "226 Data transferred\r\n";
+        if (writed == 0) {
+            reply = "Data transferred\r\n";
             break;
         }
 

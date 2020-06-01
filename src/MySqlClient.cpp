@@ -21,7 +21,7 @@ bool MySqlClient::connect(cstring user, cstring passw) {
 
 int MySqlClient::auth(cstring uname, cstring pass) {
     if (uname == "anonymous")
-        return 1;
+        return 0;
     std::string stringQuery = std::string("SELECT id from users WHERE username"
                                           "= '" + uname + "' and password = '"+ pass + "';");
     mysqlpp::Query query = conn.query(stringQuery);

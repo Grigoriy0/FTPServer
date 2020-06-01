@@ -62,6 +62,7 @@ bool TcpSocket::bind(uint16_t port)
 
     if(::bind(socket_desc, (sockaddr*)&server, sizeof(sockaddr_in)) < 0)
     {
+        print_error("bind failed ");
         return false;
     }
     return true;

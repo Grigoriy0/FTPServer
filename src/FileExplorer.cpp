@@ -11,9 +11,7 @@ std::vector<std::string> FileExplorer::ls(const std::string &selected_dir) {
     struct dirent *dp;
 
     dirStream = opendir((root + dir + selected_dir).c_str());
-    if (dirStream == nullptr) {
-        return {"~~~"}; // error signal - unknown directory 
-    }
+    result.emplace_back("---\n");
     while ((dp = readdir(dirStream)) != nullptr) {
         result.emplace_back(std::string(dp->d_name) + (dp->d_type == 4 ? "/" : ""));
     }
@@ -24,6 +22,7 @@ std::vector<std::string> FileExplorer::ls(const std::string &selected_dir) {
             --i;
         }
     }
+    result.emplace_back("---\n");
     return result;
 }
 
@@ -38,7 +37,9 @@ bool FileExplorer::rm(const std::string &filename) {
 
 bool FileExplorer::rmdir(std::string path_name) {
     auto nested_files = ls(path_name);
-    if (!nested_files.empty() && nested_files[0] != "~~~") // has nested files or directories
+    nested_files.erase(nested_files.begin());
+    nested_files.erase(nested_files.begin() + nested_files.size());
+    if (!nested_files.empty()) // has no nested files or directories
     {
         for (const auto & nested_file : nested_files) {
             if (nested_file[nested_file.size() - 1] == '/') { // directory

@@ -55,11 +55,6 @@ MySqlClient::DBUser auth(TcpSocket *client) {
     printf("> %s\n", tmp.c_str());
 
     while(request.command() != "USER") {
-        if (request.command() == "QUIT" || request.command().empty()) {
-            MySqlClient::DBUser empty{};
-            empty.id = -1;
-            return empty;
-        }
         reply = "130 Sign in first\r\n";
         printf("< %s", reply.c_str());
         client->send(reply, 0);
@@ -79,9 +74,9 @@ MySqlClient::DBUser auth(TcpSocket *client) {
         printf("< %s", reply.c_str());
         client->send(reply, 0);
         mysql.disconnect();
-        MySqlClient::DBUser empty{};
-        empty.id = -1;
-        return empty;
+        client->shutdown();
+        client->close();
+        return {};
     }
     if (user.uname != "anonymous")
         reply = "331 Password required\r\n";
@@ -103,13 +98,13 @@ MySqlClient::DBUser auth(TcpSocket *client) {
 
         }
         else {
-            reply = "530 Authentication failed" + user.uname + "\r\n";
+            reply = "530 Unknown user " + user.uname + "\r\n";
             printf("> %s", reply.c_str());
             client->send(reply, 0);
             mysql.disconnect();
-            MySqlClient::DBUser empty{};
-            empty.id = -1;
-            return empty;
+            client->shutdown();
+            client->close();
+            return {};
         }
     }
     user = mysql.getUserInfo(user.id);
@@ -129,11 +124,6 @@ void cmdThread(Client *me, std::string ip, std::string root) {
 
     MySqlClient::DBUser user;
     user = auth(me->cmdSocket);
-    if (user.id == -1) {
-        printf("Close connections with unknown user\n");
-        me->active = false;
-        return;
-    }
     me->fe = new FileExplorer(root + user.homedir);
 
     bool quit = false;
@@ -267,7 +257,7 @@ void cmdThread(Client *me, std::string ip, std::string root) {
         }
     }
 
-    printf("Close connections with %s\n", user.uname.c_str());
+    printf("Close socket\n");
     me->cmdSocket->shutdown();
     me->cmdSocket->close();
     me->active = false;
