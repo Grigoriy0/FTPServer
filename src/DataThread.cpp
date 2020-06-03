@@ -14,7 +14,7 @@
 
 
 
-inline uint16_t bind_free_port(TcpSocket *sk, uint16_t from_range = 1024, uint16_t to_range = 3000) {
+inline uint16_t bind_free_port(TcpSocket *sk, uint16_t from_range = 2000, uint16_t to_range = 3000) {
     uint16_t port;
     std::default_random_engine generator;
     std::uniform_int_distribution<int> distribution(from_range, to_range);
@@ -117,9 +117,7 @@ void DataThread::wait_commands() {
         CASE("RECV"):
             recv(fe->root_dir() + fe->pwd() + req.arg());
         break;
-        default:
-            printf("%s\n", (std::string("unknown command ") + req.command()).c_str());
-            break;
+        default:break;
     }
     dataSocket->shutdown();
     dataSocket->close();
@@ -130,17 +128,18 @@ void DataThread::send(const std::string &file_from) {
     std::string reply = "226 Data transferred\r\n";
     int fd;
     if ((fd = open(file_from.c_str(), O_RDONLY, S_IRUSR | S_IWUSR | S_IRGRP)) == -1) {
+        print_error("open failed");
         reply = "500 Error file not found\r\n";
         printf("< %s", reply.c_str());
         cmdSocket->send(reply);
         return;
     }
     off_t offset = 0;
-    struct stat buf;
-    fstat(fd, &buf);
-    ssize_t size = buf.st_size;
-    int sent = ::sendfile(dataSocket->getFD(), fd, &offset, size);
-    printf("sent = %d Bytes\n", sent);
+    struct stat file_stat;
+    fstat(fd, &file_stat);
+    ssize_t size = file_stat.st_size;
+    ssize_t sent = ::sendfile(dataSocket->getFD(), fd, &offset, size);
+    printf("sent = %zd Bytes\n", sent);
     close(fd);
     printf("< %s", reply.c_str());
     cmdSocket->send(reply);
@@ -148,27 +147,17 @@ void DataThread::send(const std::string &file_from) {
 
 
 void DataThread::list(const std::string &dir) {
-    std::string reply = "226 Requested list files action completed\r\n";
-    
     std::vector<std::string> file_list = fe->ls(dir);
     if (!file_list.empty() && file_list[0] == "~~~") {
-        reply = "350 Unknown directory " + dir + "\r\n";
-        printf("< %s", reply.c_str());
-        cmdSocket->send(reply);
-        return;
+        file_list[0] = "<Error directory not found>";
     }
-    
     std::string result;
     for (auto &file: file_list)
-        result += file + '\n';
-    
+        result += file + "\r\n";
     dataSocket->send(result);
-<<<<<<< HEAD
+    const std::string reply = "226 It's all list of files\r\n";
     printf("< %s", reply.c_str());
     cmdSocket->send(reply);
-=======
-    cmdSocket->send("226 Requested file action okay, completed.\r\n");
->>>>>>> parent of a6b416a... fix authentication
 }
 
 void DataThread::recv(const std::string &to_file) {
@@ -183,38 +172,30 @@ void DataThread::recv(const std::string &to_file) {
         return;
     }
     int readed = 0;
-    int writed = 0;
+    ssize_t all = 0;
+    int wrote = 0;
     do {
         readed = dataSocket->recv_to_buffer(buffer);
         if (readed == -1) {
-<<<<<<< HEAD
-            if (errno == ECONNRESET) {
-                reply = "500 You closed the connection\r\n";
-            }
-            else {
-                print_error("E: socket.recv(buffer1) failed");
-                reply = "500 Error on the server while io operations\r\n";
-            }
-=======
-            print_error("E: socket.recv(buffer1) failed");
-            reply = "500 Error on the server while io operations\r\n";
->>>>>>> parent of a6b416a... fix authentication
             break;
         }
 
         buffer[readed] = 0;
 
-        if ((writed = write(out_fd, buffer, readed)) == -1) {
+        if ((wrote = write(out_fd, buffer, readed)) == -1) {
             print_error("write to file failed");
             reply = "500 Error on the server while io operations\r\n";
             break;
         }
-        if (writed == 0) {
-            reply = "Data transferred\r\n";
+        if (readed == 0) {
+            reply = "226 Data transferred\r\n";
             break;
         }
 
+        all += readed;
+
     } while(true);
+    printf("received = %zd Bytes\n", all);
     close(out_fd);
     printf("< %s", reply.c_str());
     cmdSocket->send(reply);

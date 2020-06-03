@@ -29,7 +29,7 @@ public:
 
     void shutdown();
 
-    int send_file(int fd, ssize_t size, off_t offset);
+    int getFD();
 
  private:
     int socket_desc;

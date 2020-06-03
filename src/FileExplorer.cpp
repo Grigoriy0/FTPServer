@@ -11,7 +11,9 @@ std::vector<std::string> FileExplorer::ls(const std::string &selected_dir) {
     struct dirent *dp;
 
     dirStream = opendir((root + dir + selected_dir).c_str());
-    result.emplace_back("---\n");
+    if (dirStream == nullptr) {
+        return {"~~~"}; // error signal - unknown directory
+    }
     while ((dp = readdir(dirStream)) != nullptr) {
         result.emplace_back(std::string(dp->d_name) + (dp->d_type == 4 ? "/" : ""));
     }
@@ -22,7 +24,6 @@ std::vector<std::string> FileExplorer::ls(const std::string &selected_dir) {
             --i;
         }
     }
-    result.emplace_back("---\n");
     return result;
 }
 
@@ -35,31 +36,29 @@ bool FileExplorer::rm(const std::string &filename) {
 }
 
 
-bool FileExplorer::rmdir(std::string path_name) {
+bool FileExplorer::rmdir(std::string path_name) { // with all nested files
     auto nested_files = ls(path_name);
-    nested_files.erase(nested_files.begin());
-    nested_files.erase(nested_files.begin() + nested_files.size());
-    if (!nested_files.empty()) // has no nested files or directories
+    if (!nested_files.empty() && nested_files[0] != "~~~") // has nested files or directories
     {
-        for (const auto & nested_file : nested_files) {
+        for (auto & nested_file : nested_files) {
             if (nested_file[nested_file.size() - 1] == '/') { // directory
-                
+
                 cd(path_name);
-                
+
                 bool res = rmdir(nested_file);
 
                 cd_up();
-                if (res == false) 
+                if (!res)
                     return false;
             }
             else {
                 // it's a simple file
                 if (path_name[path_name.size() - 1] != '/')
-                    path_name += '/';
-                path_name += nested_file;
-                printf("remove file %s\n", (root + dir + path_name).c_str());
-                if (::remove((root + dir + path_name).c_str())) {
-                    print_error("E: removing filepath " + path_name);
+                    nested_file = "/" + nested_file;                
+                nested_file = path_name + nested_file;
+                printf("remove file %s\n", (root + dir + nested_file).c_str());
+                if (::remove((root + dir + nested_file).c_str())) {
+                    print_error("E: removing filepath " + nested_file);
                     return false;
                 }
             }

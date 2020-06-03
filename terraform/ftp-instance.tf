@@ -9,7 +9,7 @@ resource "aws_instance" "ftp-server" {
   vpc_security_group_ids = [aws_security_group.ftp_ssh.id]
   
   tags = {
-    name = "Ubuntu-ftp-server"
+    Name = "Ubuntu-ftp-server"
   }
 
   provisioner "local-exec" {    # for ansible
