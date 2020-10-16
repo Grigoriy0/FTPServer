@@ -8,7 +8,7 @@ class MySqlClient {
 public:
     explicit MySqlClient(cstring database);
 
-    bool connect(cstring user, cstring passw);
+    bool connect(cstring user, cstring passw, cstring host);
 
     struct DBUser{
         int id;

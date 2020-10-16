@@ -72,8 +72,12 @@ MySqlClient::DBUser auth(TcpSocket *client) {
     MySqlClient::DBUser user;
     user.uname = request.arg();
 
-    MySqlClient mysql(getenv("FTP_DB_NAME"));
-    if (!mysql.connect(getenv("FTP_DB_USER"), getenv("FTP_DB_PASS"))) {
+    cstring host = getenv("FTP_DB_HOST") == nullptr ? "localhost" : getenv("FTP_DB_HOST");
+    cstring username = getenv("FTP_DB_USER");
+    cstring db_name = getenv("FTP_DB_NAME");
+    cstring db_password = getenv("FTP_DB_PASS");
+    MySqlClient mysql(db_name);
+    if (!mysql.connect(username, db_password, host)) {
         print_error(mysql.last_error().c_str());
         reply = "530 Sorry, error on the database server\r\n";
         printf("< %s", reply.c_str());

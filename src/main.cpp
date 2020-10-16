@@ -10,7 +10,8 @@ int main(int argc, char *argv[]) {
     const char* env_requirements = "Please set required environment variables:\n"
                                    "FTP_DB_NAME - name of mysql database name\n"
                                    "FTP_DB_USER - username for connection\n"
-                                   "FTP_DB_PASS - password for user (optional)";
+                                   "FTP_DB_PASS - password for user (optional)\n"
+                                   "FTP_DB_HOST - host(ip address) of mysql (optional";
 
     if (getenv("FTP_DB_NAME") == nullptr || getenv("FTP_DB_USER") == nullptr){
         printf("%s\n", env_requirements);

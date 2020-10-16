@@ -8,8 +8,8 @@ MySqlClient::MySqlClient(cstring database):
 
     };
 
-bool MySqlClient::connect(cstring user, cstring passw) {
-    conn.connect(db_name.c_str(), "localhost", user.c_str(), passw.c_str());
+bool MySqlClient::connect(cstring user, cstring passw, cstring host) {
+    conn.connect(db_name.c_str(), host.c_str(), user.c_str(), passw.c_str());
     if (not conn.connected())
     {
         error = conn.error();
