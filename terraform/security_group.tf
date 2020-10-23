@@ -3,6 +3,7 @@
 resource "aws_security_group" "ftp_ssh" {
   name        = "allow_ftp_ssh"
   description = "Allow 21, 22, 2000-3000"
+  vpc_id      = aws_vpc.ftp_vpc.id
 
   ingress { # ftp port
     from_port   = 21

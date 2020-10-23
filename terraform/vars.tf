@@ -7,4 +7,13 @@ variable "ftp_server_user" {
   default = "ubuntu"
 }
 
+variable "username" {
+  default = "ftpuser"
+}
 
+variable "db_name" {
+  default = "FTPServer"
+}
+
+variable "password" {
+}

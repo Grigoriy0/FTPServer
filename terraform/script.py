@@ -1,12 +1,12 @@
 
 if __name__ == "__main__":
-    f_in = open("ip.txt")
-    ip = f_in.read().strip()
-    f_in.close()
-
-    if len(ip) == 0:
-        print('file ip.txt is empty')
-        exit(1)
+    try:
+        f_in = open("ip")
+    except FileNotFoundError:
+        print('File not found. skip')
+    else:
+        ip = f_in.read().strip()
+        f_in.close()
 
     server = ip.strip()+\
     " ansible_connection=ssh"+\

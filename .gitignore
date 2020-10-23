@@ -1,3 +1,5 @@
-ter/.terraform
+terraform/terraform.tfstate
+terraform/.terraform
+terraform/terraform.tfstate.backup
 .idea
 cmake-build-debug
